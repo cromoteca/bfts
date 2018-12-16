@@ -31,7 +31,7 @@ import android.preference.PreferenceManager;
 import com.cromoteca.bfts.client.ClientActivities;
 import com.cromoteca.bfts.client.Filesystem;
 import com.cromoteca.bfts.model.Source;
-import com.cromoteca.bfts.storage.DataEncryptedStorage;
+import com.cromoteca.bfts.storage.EncryptedStorages;
 import com.cromoteca.bfts.storage.FileStatus;
 import com.cromoteca.bfts.storage.RemoteStorage;
 import com.cromoteca.bfts.storage.Storage;
@@ -88,7 +88,7 @@ public class BackupService extends JobService {
                             config.getServerPort(), password);
                     // Storage storage = RemoteStorage.create("10.0.2.2", 8715, password);
                     // Storage storage = RemoteStorage.create("192.168.1.133", 8715, password);
-                    storage = new DataEncryptedStorage(storage, password);
+                    storage = EncryptedStorages.getEncryptedStorage(storage, password, false);
                     Filesystem filesystem = new Filesystem();
                     ClientActivities backup = new ClientActivities(clientName,
                             filesystem, storage, config.getServerName(), 120);

@@ -18,8 +18,8 @@ package com.cromoteca.bfts.storage;
 
 import com.cromoteca.bfts.cryptography.Cryptographer;
 import com.cromoteca.bfts.util.Container;
-import java.beans.Introspector;
-import java.beans.PropertyDescriptor;
+import com.googlecode.openbeans.Introspector;
+import com.googlecode.openbeans.PropertyDescriptor;
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;

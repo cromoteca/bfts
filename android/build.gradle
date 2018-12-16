@@ -46,6 +46,7 @@ dependencies {
         exclude group: 'com.google.android', module: 'android'
     }
 
-    api 'com.fasterxml.jackson.core:jackson-core:2.9.2'
-    api 'com.fasterxml.jackson.core:jackson-databind:2.9.2'
+    implementation 'com.fasterxml.jackson.core:jackson-core:2.9.2'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.9.2'
+    implementation 'com.googlecode:openbeans:1.0'
 }

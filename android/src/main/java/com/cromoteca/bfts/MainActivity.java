@@ -29,7 +29,7 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import com.cromoteca.bfts.model.Stats;
-import com.cromoteca.bfts.storage.DataEncryptedStorage;
+import com.cromoteca.bfts.storage.EncryptedStorages;
 import com.cromoteca.bfts.storage.RemoteStorage;
 import com.cromoteca.bfts.storage.Storage;
 
@@ -85,7 +85,7 @@ public class MainActivity extends Activity {
                     char[] password = config.getPassword().toCharArray();
                     Storage storage = RemoteStorage.create(config.getServerName(),
                             config.getServerPort(), password);
-                    storage = new DataEncryptedStorage(storage, password);
+                    storage = EncryptedStorages.getEncryptedStorage(storage, password,false);
                     Stats stats = storage.getClientStats(config.getClientName());
                     DateFormat dateFormat = SimpleDateFormat.getDateTimeInstance(
                             SimpleDateFormat.MEDIUM, SimpleDateFormat.MEDIUM);
