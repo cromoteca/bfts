@@ -8,7 +8,7 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR EncryptedIOSupplier PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
@@ -18,8 +18,10 @@ package com.cromoteca.bfts.storage;
 
 import com.cromoteca.bfts.cryptography.Cryptographer;
 import com.cromoteca.bfts.util.Container;
+import com.cromoteca.bfts.util.lambdas.IOSupplier;
 import com.googlecode.openbeans.Introspector;
 import com.googlecode.openbeans.PropertyDescriptor;
+import java.io.IOException;
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -44,7 +46,7 @@ public class EncryptedStorages {
 
   public static Storage getEncryptedStorage(Storage storage,
       char[] password, boolean encryptStrings) {
-    Container<Cryptographer> cryptographer = new Container<>(() -> {
+    Container<Cryptographer> crypto = new Container<>(() -> {
       byte[] salt = storage.getStorageConfiguration().getSalt();
       try {
         return new Cryptographer(salt, password);
@@ -58,27 +60,27 @@ public class EncryptedStorages {
 
     return (Storage) Proxy.newProxyInstance(loader, storageClass, (p, m, a) -> {
       Object[] args = Arrays.stream(a)
-          .map(o -> doEncryptionDecryption(o, cryptographer.getValue(), true,
+          .map(o -> doEncryptionDecryption(o, crypto.getValue(), true,
           encryptStrings))
           .toArray(Object[]::new);
 
       Object returnValue = m.invoke(storage, args);
       returnValue = doEncryptionDecryption(returnValue,
-          cryptographer.getValue(), false, encryptStrings);
+          crypto.getValue(), false, encryptStrings);
       return returnValue;
     });
   }
 
-  private static <T> T doEncryptionDecryption(T t, Cryptographer c, boolean enc,
-      boolean strings) {
+  private static <T> T doEncryptionDecryption(T t, Cryptographer crypto,
+      boolean enc, boolean strings) {
     try {
       if (t == null) {
         return null;
       } else if (t instanceof byte[]) {
-        t = (T) (enc ? c.encrypt((byte[]) t) : c.decrypt((byte[]) t));
+        t = (T) (enc ? crypto.encrypt((byte[]) t) : crypto.decrypt((byte[]) t));
       } else if (t instanceof String) {
         if (strings) {
-          t = (T) (enc ? c.encrypt((String) t) : c.decrypt((String) t));
+          t = (T) (enc ? crypto.encrypt((String) t) : crypto.decrypt((String) t));
         }
       } else if (t instanceof List<?>) {
         Method get = List.class.getMethod("get", int.class);
@@ -87,15 +89,17 @@ public class EncryptedStorages {
 
         for (int i = 0; i < list.size(); i++) {
           Object item = get.invoke(list, i);
-          item = doEncryptionDecryption(item, c, enc, strings);
+          item = doEncryptionDecryption(item, crypto, enc, strings);
           set.invoke(list, i, item);
         }
       } else if (t.getClass().isArray()) {
         for (int i = 0; i < Array.getLength(t); i++) {
           Object item = Array.get(t, i);
-          item = doEncryptionDecryption(item, c, enc, strings);
+          item = doEncryptionDecryption(item, crypto, enc, strings);
           Array.set(t, i, item);
         }
+      } else if (t instanceof IOSupplier<?>) {
+        t = (T) new EncryptedIOSupplier((IOSupplier<byte[]>) t, crypto, enc);
       } else {
         PropertyDescriptor[] propertyDescriptors
             = Introspector.getBeanInfo(t.getClass()).getPropertyDescriptors();
@@ -106,7 +110,7 @@ public class EncryptedStorages {
 
           if (readMethod != null && writeMethod != null) {
             Object value = readMethod.invoke(t);
-            Object treated = doEncryptionDecryption(value, c, enc, strings);
+            Object treated = doEncryptionDecryption(value, crypto, enc, strings);
             writeMethod.invoke(t, treated);
           }
         }
@@ -115,6 +119,34 @@ public class EncryptedStorages {
       return t;
     } catch (Exception ex) {
       throw new StorageException(ex);
+    }
+  }
+
+  public static class EncryptedIOSupplier implements IOSupplier<byte[]> {
+    private IOSupplier<byte[]> origin;
+    private Cryptographer crypto;
+    private boolean encrypt;
+
+    public EncryptedIOSupplier(IOSupplier<byte[]> origin, Cryptographer crypto,
+        boolean encrypt) {
+      this.origin = origin;
+      this.crypto = crypto;
+      this.encrypt = encrypt;
+    }
+
+    @Override
+    public byte[] get() throws IOException {
+      try {
+        return encrypt ? crypto.encrypt(origin.get())
+            : crypto.decrypt(origin.get());
+      } catch (GeneralSecurityException ex) {
+        throw new StorageException(ex);
+      }
+    }
+
+    @Override
+    public void end() throws IOException {
+      origin.end();
     }
   }
 }
