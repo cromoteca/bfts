@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+Copyright (C) 2014-2019 Luciano Vernaschi (luciano at cromoteca.com)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<mapper namespace="com.cromoteca.bfts.mappers.InitMapper">
+  <select id="getVersion" resultType="String">
+    select sqlite_version()
+  </select>
+
+  <delete id="dropServerTable">
+    drop table if exists servers
+  </delete>
+
+  <insert id="createServerTable">
+    create table servers (
+      id blob not null,
+      salt blob not null,
+      databaseBackupIntervalMinutes integer,
+      databaseBackupsToKeep integer,
+      encryptedPublicKey blob,
+      privateKey blob
+    )
+  </insert>
+
+  <delete id="dropSourceTable">
+    drop table if exists sources
+  </delete>
+
+  <insert id="createSourceTable">
+    create table sources (
+      id integer primary key,
+      client text,
+      name text,
+      rootPath text,
+      priority integer,
+      syncSource integer,
+      syncTarget integer,
+      lastUpdated integer,
+      ignoredPatterns text
+    )
+  </insert>
+
+  <delete id="dropFileTable">
+    drop table if exists files
+  </delete>
+
+  <insert id="createFileTable">
+    create table files (
+      id integer primary key autoincrement, <!-- autoincrement is needed -->
+      sourceId integer, <!-- id of the backup source -->
+      name text, <!-- file name on the client -->
+      parent text, <!-- file path on the client -->
+      size integer, <!-- file size -->
+      lastModified integer, <!-- modification date of the client -->
+      hash blob, <!-- hash of file contents -->
+      created integer, <!-- file creation date in the backup -->
+      status integer <!-- status or file deletion date in the backup -->
+    )
+  </insert>
+
+  <insert id="createFilePrimaryIndex">
+    create index files_main_idx
+    on files (name, parent, sourceId, lastModified, status)
+  </insert>
+
+  <insert id="createFileSecondaryIndex">
+    create index files_secondary_idx
+    on files (status, sourceId, hash)
+  </insert>
+
+  <insert id="createFileTrigger">
+    create trigger duplicate_files_trigger
+    before insert on files
+    for each row
+    when new.status = ${realtime}
+    and exists (
+      select null
+      from files
+      where name = new.name
+      and parent = new.parent
+      and size = new.size
+      and status in (${current}, ${synced}, ${realtime})
+    )
+    begin
+      select raise(ignore);
+    end
+  </insert>
+
+  <delete id="dropHashTable">
+    drop table if exists hashes
+  </delete>
+
+  <insert id="createHashTable">
+    create table hashes (
+      id integer primary key,
+      main blob not null,
+      position integer not null,
+      length integer,
+      chunk blob,
+      uploaded integer,
+      constraint unique_chunk unique (main, position)
+    )
+  </insert>
+
+  <insert id="createHashChunkIndex">
+    create index hashes_chunk_idx
+    on hashes(chunk)
+  </insert>
+
+  <insert id="createHashTrigger">
+    create trigger hashes_chunk_trigger
+    after insert on hashes
+    begin
+      update hashes set uploaded = (
+        select max(uploaded)
+        from hashes h
+        where h.chunk = new.chunk
+      )
+      where id = new.id;
+    end
+  </insert>
+
+  <insert id="addServer">
+    insert or ignore into servers (rowid, id, salt,
+      databaseBackupIntervalMinutes, databaseBackupsToKeep)
+    <!-- by always inserting the same value for rowid, we're sure that we'll
+         never have two server configurations in the database -->
+    values (1, #{server.id}, #{server.salt},
+            #{server.databaseBackupIntervalMinutes},
+            #{server.databaseBackupsToKeep})
+  </insert>
+
+  <insert id="createFileView">
+    create view file_view as
+    select f.id as id, f.name as name, f.parent as parent, f.size as size,
+           f.lastModified as lastModified, f.hash as hash, f.created as created,
+           f.status as status,
+           f.sourceId as "source.id", s.client as "source.client",
+           s.name as "source.name", s.rootPath as "source.rootPath",
+           s.priority as "source.priority", s.syncSource as "source.syncSource",
+           s.syncTarget as "source.syncTarget",
+           s.lastUpdated as "source.lastUpdated",
+           s.ignoredPatterns as "source.ignoredPatterns",
+           case
+             when f.size = 0 then 1
+             when f.hash is null then 0
+             when exists (
+               select null from hashes h
+               where h.main = f.hash and h.uploaded is null
+             ) then 0
+             else 1
+           end as uploaded
+    from files f
+    left join sources s
+      on s.id = f.sourceId
+  </insert>
+
+  <insert id="createFriendlyFileView">
+    create view friendly_file_view as
+    select f.id as id, f.name as name, f.parent as parent, f.size as size,
+           datetime(f.lastModified/1000, 'unixepoch') as lastModifiedTime,
+           hex(f.hash) as hashString,
+           datetime(f.created/1000, 'unixepoch') as createdTime,
+           case
+             when f.status &lt;= 0 then f.status
+             else null
+           end as status,
+           case
+             when f.status &gt; 0 then datetime(f.status/1000, 'unixepoch')
+             else null
+           end as deletedTime,
+           f."source.id", f."source.client",
+           f."source.name", f."source.rootPath",
+           datetime(f."source.lastUpdated"/1000, 'unixepoch') as "source.lastUpdatedDate",
+           uploaded
+    from file_view f
+  </insert>
+
+  <insert id="createFriendlySourceView">
+    create view friendly_source_view as
+    select id, client, name, rootPath, priority, syncSource, syncTarget,
+           datetime(lastUpdated/1000, 'unixepoch') as lastUpdatedDate,
+           ignoredPatterns,
+           (select count(*) from files f where status &lt;= 0 and f.sourceId = sources.id) as fileCount,
+           (select count(*) from files f where status &gt; 0 and f.sourceId = sources.id) as deletedFileCount
+    from sources
+  </insert>
+</mapper>

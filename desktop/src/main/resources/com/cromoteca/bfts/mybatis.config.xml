@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN" "http://mybatis.org/dtd/mybatis-3-config.dtd">
+
+<!--
+Copyright (C) 2014-2019 Luciano Vernaschi (luciano at cromoteca.com)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<configuration>
+
+  <!-- File status properties are added by parsing the corresponding Java
+       enum after loading this file  -->
+
+  <settings>
+    <setting name="logImpl" value="SLF4J"/>
+    <!--setting name="autoMappingBehavior" value="FULL"/-->
+  </settings>
+
+  <typeAliases>
+    <package name="com.cromoteca.bfts.model"/>
+  </typeAliases>
+
+  <!-- The SQLite JDBC driver does not support getBlob -->
+  <typeHandlers>
+    <typeHandler javaType="_byte[]" jdbcType="BLOB"
+                 handler="org.apache.ibatis.type.ByteArrayTypeHandler"/>
+  </typeHandlers>
+
+  <environments default="file">
+
+    <environment id="file">
+      <transactionManager type="JDBC"/>
+      <!-- UNPOOLED means that the database file is released when there are
+           no connection. This is important for us since we want to be able
+           to store data on a USB hard drive for example -->
+      <dataSource type="UNPOOLED">
+        <property name="driver" value="org.sqlite.JDBC"/>
+        <property name="url" value="jdbc:sqlite:${database.file}"/>
+      </dataSource>
+    </environment>
+
+    <environment id="memory">
+      <transactionManager type="JDBC"/>
+      <dataSource type="POOLED">
+        <property name="driver" value="org.sqlite.JDBC"/>
+        <property name="url" value="jdbc:sqlite::memory:"/>
+        <!-- make sure we keep the same single connection opened, otherwise a
+             different in memory backup will be created for each connection -->
+        <property name="poolMaximumActiveConnections" value="1"/>
+        <property name="poolMaximumIdleConnections" value="1"/>
+      </dataSource>
+    </environment>
+
+  </environments>
+
+  <mappers>
+    <package name="com.cromoteca.bfts.mappers"/>
+  </mappers>
+
+</configuration>

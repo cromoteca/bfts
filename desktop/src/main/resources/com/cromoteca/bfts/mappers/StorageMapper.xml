@@ -1,0 +1,529 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+Copyright (C) 2014-2019 Luciano Vernaschi (luciano at cromoteca.com)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<mapper namespace="com.cromoteca.bfts.mappers.StorageMapper">
+  <update id="analyze">
+    analyze
+  </update>
+
+  <select id="getStorageConfiguration" resultType="StorageConfiguration">
+    select *
+    from servers
+    order by id <!-- always select the first row -->
+    limit 1
+  </select>
+
+  <update id="addKeyPair">
+    update servers
+    set encryptedPublicKey = #{encryptedPublicKey},
+        privateKey = #{privateKey}
+    <!-- uncomment to disallow changing key pair -->
+    <!--
+    where encryptedPublicKey is null
+    and privateKey is null
+    -->
+  </update>
+
+  <select id="getPrivateKey" resultType="com.cromoteca.bfts.util.Container">
+    select privateKey as value
+    from servers
+    order by id <!-- always select the first row -->
+    limit 1
+  </select>
+
+  <insert id="addSource">
+    insert into sources
+           (client, name, rootPath, priority, syncSource, syncTarget)
+    values (#{clientName}, #{name}, #{rootPath}, 10, 0, 0)
+  </insert>
+
+  <update id="setSourcePriority">
+    update sources
+    set priority = #{priority}
+    where name = #{sourceName}
+    and client = #{clientName}
+  </update>
+
+  <update id="setSourceSyncAttributes">
+    update sources
+    set syncSource = #{syncSource},
+        syncTarget = #{syncTarget}
+    where name = #{sourceName}
+    and client = #{clientName}
+  </update>
+
+  <update id="setSourceIgnoredPatterns">
+    update sources
+    set ignoredPatterns = #{ignoredPatterns}
+    where name = #{sourceName}
+    and client = #{clientName}
+  </update>
+
+  <select id="getSource" resultType="Source">
+    select *
+    from sources
+    where name = #{sourceName}
+    and client = #{clientName}
+  </select>
+
+  <insert id="addFiles">
+    insert into files
+      (sourceId, name, parent, lastModified, size, status, hash, created)
+    values (
+      <foreach collection="files" item="x" open="" close="" separator="),(">
+        #{sourceId}, #{x.name}, #{x.parent}, #{x.lastModified},
+        #{x.size}, ${current},
+        <!-- assume that a file has not changed if size and date are identical
+             to its previous version and in that case keep the hash -->
+        (select hash
+         from files
+         where sourceId = #{sourceId}
+         and name = #{x.name}
+         and parent = #{x.parent}
+         and size = #{x.size}
+         and lastModified is #{x.lastModified}
+         and status in (${current}, ${synced}, ${realtime})),
+        <!-- same as above for the creation time (otherwise use current time).
+             An aggregator is used so that the value of "created" is returned if
+             a row exists, else null, which is replaced by #{instant} -->
+        (select coalesce(max(created), #{instant})
+         from files
+         where sourceId = #{sourceId}
+         and name = #{x.name}
+         and parent = #{x.parent}
+         and size = #{x.size}
+         and lastModified is #{x.lastModified}
+         and status in (${current}, ${synced}, ${realtime}))
+      </foreach>
+    )
+  </insert>
+
+  <!-- obsolete rows are those where a newer row with identical data exists -->
+  <update id="markObsoleteFiles">
+    update files
+    set status = ${obsolete}
+    where sourceId = #{sourceId}
+    and status = ${current}
+    and exists (
+      select null
+      from files f
+      where f.sourceId = #{sourceId}
+      and f.status = ${current}
+      and f.name = files.name
+      and f.parent = files.parent
+      and f.size = files.size
+      and f.lastModified is files.lastModified
+      and f.id &gt; files.id
+    )
+  </update>
+
+  <!-- TODO: rename as it also concerns realtime -->
+  <update id="deleteConfirmedSyncedFiles">
+    delete from files
+    where sourceId = #{sourceId}
+    and status in (${synced}, ${realtime})
+    and exists (
+      select null
+      from files f
+      where f.sourceId = #{sourceId}
+      and f.status = ${current}
+      and f.name = files.name
+      and f.parent = files.parent
+      and f.size = files.size
+      and f.lastModified is files.lastModified
+      and f.id &gt; files.id
+    )
+  </update>
+
+  <update id="markDeletedFiles">
+    update files
+    set status = #{instant}
+    where sourceId = #{sourceId}
+    and status in (${current}, ${synced}, ${realtime})
+    <!-- we can mark all rows older than the newest obsolete one as deleted -->
+    and id &lt; (
+      select max(id)
+      from files
+      where sourceId = #{sourceId}
+      and status = ${obsolete}
+    )
+  </update>
+
+  <delete id="removeObsoleteRows">
+    delete
+    from files
+    where sourceId = #{sourceId}
+    and status = ${obsolete}
+  </delete>
+
+  <update id="setSourceLastUpdated">
+    update sources
+    set lastUpdated = #{lastUpdated}
+    where id = #{sourceId}
+  </update>
+
+  <select id="getSourceLastUpdated" resultType="long">
+    select coalesce(lastUpdated, 0)
+    from sources
+    where id = #{sourceId}
+  </select>
+
+  <select id="getClientLastUpdated" resultType="long">
+    select coalesce(max(lastUpdated), 0)
+    from sources
+    where client = #{clientName}
+  </select>
+
+  <select id="countCurrentFilesBySource" resultType="int">
+    select count(*) as cnt
+    from files
+    where sourceId = #{sourceId}
+    and status = ${current}
+  </select>
+
+  <select id="countCurrentFilesByClient" resultType="int">
+    select count(*) as cnt
+    from files f
+    left join sources s
+      on f.sourceId = s.id
+    where s.client = #{clientName}
+    and f.status = ${current}
+  </select>
+
+  <select id="countMissingChunksBySource" resultType="int">
+    select count(distinct h.chunk)
+    from files f
+    join hashes h
+      on h.main = f.hash
+    where f.sourceId = #{sourceId}
+    and f.status = ${current}
+    and h.uploaded is null
+  </select>
+
+  <select id="countMissingChunksByClient" resultType="int">
+    select count(distinct h.chunk)
+    from files f
+    join hashes h
+      on h.main = f.hash
+    left join sources s
+      on f.sourceId = s.id
+    where s.client = #{clientName}
+    and f.status = ${current}
+    and h.uploaded is null
+  </select>
+
+  <select id="getLastFile" resultType="File">
+    select id, name, parent, size, lastModified
+    from files
+    where sourceId = #{sourceId}
+    and status = ${current}
+    order by id desc
+    limit 1
+  </select>
+
+  <!-- TODO: discard duplicates and retain the good versions? -->
+  <select id="getFiles" resultMap="rmFileWithHashes">
+    with availableFiles as (
+      select *
+      from file_view
+      where "source.id" = #{sourceId}
+      and created &lt;= #{instant}
+      and (status in (${current}, ${synced}, ${realtime})
+           or status &gt; #{instant})
+      and uploaded = 1
+    )
+    select af.id, af.name, af.parent, af.size, af.lastModified, af.hash as main
+    from availableFiles af
+    where not exists (
+      select null
+      from availableFiles af2
+      where af2.name = af.name
+      and af2.parent = af.parent
+      and (
+        af2.created &gt; af.created
+        or
+        (af2.created = af.created and af2.id &gt; af.id)
+      )
+    )
+  </select>
+
+  <select id="getSources" resultType="Source">
+    select s.id, s.name, s.rootPath, s.priority, s.syncSource, s.syncTarget,
+           s.ignoredPatterns,
+           coalesce(f1.id, 0) as "newestFile.id",
+           f1.name as "newestFile.name",
+           f1.parent as "newestFile.parent",
+           coalesce(f2.id, 0) as "oldestFile.id",
+           f2.name as "oldestFile.name",
+           f2.parent as "oldestFile.parent"
+    from sources s
+    <!-- associate to each source its newest file... -->
+    left join files f1
+      on f1.sourceId = s.id
+      and f1.id = (select max(id) from files f3
+                   where f3.sourceId = s.id and f3.status = ${current})
+    <!-- ... and its oldest one -->
+    left join files f2
+      on f2.sourceId = s.id
+      and f2.id = (select min(id) from files f4
+                   where f4.sourceId = s.id and f4.status = ${current})
+    where s.client = #{clientName}
+  </select>
+
+  <select id="getFileChunks" resultType="Chunk">
+    select position as "index", length, chunk as hash
+    from hashes
+    where main = #{fileHash}
+    order by position
+  </select>
+
+  <select id="countNotHashedFilesBySource" resultType="int">
+    select count(*)
+    from files
+    where sourceId = #{sourceId}
+    and size &lt;&gt; 0
+    and status = ${current}
+    and hash is null
+  </select>
+
+  <select id="countNotHashedFilesByClient" resultType="int">
+    select count(*)
+    from files f
+    left join sources s
+      on f.sourceId = s.id
+    where s.client = #{clientName}
+    and f.size &lt;&gt; 0
+    and f.status = ${current}
+    and f.hash is null
+  </select>
+
+  <select id="getNotHashedFiles" resultType="File">
+    select f.id, f.name, f.parent, f.size, f.lastModified,
+           s.id as "source.id", s.rootPath as "source.rootPath"
+    from files f
+    left join sources s
+      on f.sourceId = s.id
+    where s.client = #{clientName}
+    and f.size &lt;&gt; 0
+    and f.status = #{status}
+    and f.hash is null
+    <if test="sourceIds.length != 0">
+      and f.sourceId in
+      <foreach item="item" index="index" collection="sourceIds"
+               open="(" separator="," close=")">
+        #{item}
+      </foreach>
+    </if>
+    order by f.id
+    limit #{limit}
+  </select>
+
+  <select id="getNotUploadedChunks" resultType="Chunk">
+    select f.name as "file.name", f.parent as "file.parent",
+           f.size as "file.size", f.lastModified as "file.lastModified",
+           s.rootPath as "file.source.rootPath",
+           h.position as "index", h.length, h.chunk as hash, hex(h.chunk)
+    from hashes h
+    join files f
+    on h.main = f.hash
+    left join sources s
+    on f.sourceId = s.id
+    where h.uploaded is null
+    and s.client = #{clientName}
+    and f.status = #{status}
+    <if test="sourceIds.length != 0">
+      and f.sourceId in
+      <foreach item="item" index="index" collection="sourceIds"
+               open="(" separator="," close=")">
+        #{item}
+      </foreach>
+    </if>
+    order by f.id
+    limit #{limit}
+  </select>
+
+  <update id="updateFileHash">
+    update files
+    set hash = #{file.hash.main}
+    where sourceId = #{file.source.id}
+    and parent = #{file.parent}
+    and name = #{file.name}
+    and size = #{file.size}
+    and lastModified is #{file.lastModified}
+  </update>
+
+  <insert id="addChunk">
+    insert or ignore into hashes (main, position, length, chunk)
+    values (#{main}, #{position}, #{length}, #{chunk})
+  </insert>
+
+  <update id="markUploadedChunk">
+    update hashes set uploaded = #{instant} where chunk = #{hash}
+  </update>
+
+  <resultMap id="rmFileWithHashes" type="File">
+    <id property="id" column="id"/>
+    <result property="name" column="name"/>
+    <result property="parent" column="parent"/>
+    <result property="size" column="size"/>
+    <result property="lastModified" column="lastModified"/>
+    <result property="syncTime" column="syncTime"/>
+    <association property="hash" javaType="Hash">
+      <result property="main" column="main"/>
+      <collection property="chunks" ofType="Chunk">
+        <id property="index" column="position"/>
+        <result property="length" column="length"/>
+        <result property="hash" column="chunk"/>
+      </collection>
+    </association>
+  </resultMap>
+
+  <select id="getFilesDeletedFromOtherClients" resultMap="rmFileWithHashes">
+    select cf.id, cf.name, cf.parent, cf.size, cf.lastModified,
+           cf.hash as main, of.status as syncTime
+    from files cf <!-- current files -->
+    join files of <!-- files from other sources -->
+      on of.name = cf.name
+      and of.parent = cf.parent
+      and of.hash is cf.hash
+    left join sources s
+      on s.id = of.sourceId
+    where s.name = (select name from sources where id = #{sourceId})
+    and s.syncSource = 1
+    and of.sourceId &lt;&gt; #{sourceId}
+    and cf.sourceId = #{sourceId}
+    and cf.status = ${current}
+    and (cf.size = 0 or cf.hash is not null)
+    <!-- the following condition is always true for directories and empty files -->
+    and not exists (
+      select null from hashes where main = cf.hash and uploaded is null
+    )
+    <!-- make sure that the file has not been recreated on the client which
+         reports the deletion -->
+    and not exists (
+      select null
+      from files nf
+      where nf.sourceId = of.sourceId
+      and nf.name = of.name
+      and nf.parent = of.parent
+      and nf.status in (${current}, ${synced}, ${realtime})
+      <!-- the new file might not have been hashed -->
+      and (nf.hash is of.hash or nf.hash is null)
+      and nf.created &gt; of.created
+    )
+    <!-- this also checks that of.status is greater than zero, i.e. it has been
+         deleted -->
+    and of.status &gt; max(cf.created, #{instant} - 1000 * 3600 * 24 * 10)
+  </select>
+
+  <update id="markFileDeletedFromSync">
+    update files
+    set status = #{instant}
+    where id = #{id}
+  </update>
+
+  <select id="getNewFilesFromOtherClients" resultMap="rmFileWithHashes">
+    with newfiles as (
+      select nf.id, nf.name, nf.parent, nf.size, nf.lastModified,
+             nf.hash, nf.created
+      from files nf
+      left join sources s
+        on s.id = nf.sourceId
+      where s.name = (select name from sources where id = #{sourceId})
+      and s.syncSource = 1
+      <!-- and (strftime('%s', 'now') - nf.created / 1000) &lt; 3600 * 24 * 10 -->
+      and (#{instant} - nf.created) &lt; 1000 * 3600 * 24 * 10 <!-- 10 days -->
+      and nf.sourceId &lt;&gt; #{sourceId}
+      and nf.status in (${current}, ${realtime})
+      and not exists (
+        select null from files cf
+        where cf.sourceId = #{sourceId}
+        and cf.name = nf.name
+        and cf.parent = nf.parent
+        and (cf.status in (${current}, ${synced}, ${realtime}) or (
+          cf.size = nf.size
+          and cf.hash is nf.hash
+          and cf.status &gt;= nf.created
+        ))
+      )
+      and (nf.size = 0 or (nf.hash is not null and not exists (
+        select null from hashes h2 where h2.main = nf.hash and h2.uploaded is null
+      )))
+      limit #{limit}
+    )
+    select nf.id, nf.name, nf.parent, nf.size, nf.lastModified,
+           nf.created as syncTime, h.main, h.position, h.length, h.chunk
+    from newfiles nf
+    left join hashes h
+      on nf.hash = h.main
+    order by nf.created, nf.id, h.position
+  </select>
+
+  <insert id="markFilesAddedFromSync">
+    insert into files
+      (sourceId, name, parent, lastModified, size, status, hash, created)
+    values (
+      <foreach collection="files" item="x" open="" close="" separator="),(">
+        #{sourceId}, #{x.name}, #{x.parent}, #{x.lastModified},
+        #{x.size}, ${synced}, #{x.hash.main}, #{x.syncTime}
+      </foreach>
+    )
+  </insert>
+
+  <select id="getUploadedChunks" resultType="Chunk">
+    select position as "index", length, chunk as hash
+    from hashes
+    <choose>
+      <when test="to == null">
+        where chunk > #{from}
+      </when>
+      <otherwise>
+        where chunk between #{from} and #{to}
+      </otherwise>
+    </choose>
+    and uploaded is not null
+  </select>
+
+  <update id="deleteChunk">
+    update hashes
+    set uploaded = null
+    where chunk = #{hash}
+  </update>
+
+  <update id="deleteFileInRealtime">
+    update files
+    set status = #{instant}
+    where sourceId = #{file.sourceId}
+    and name = #{file.name}
+    and parent = #{file.parent}
+    and status = ${current}
+  </update>
+
+  <insert id="addFilesInRealtime">
+    insert into files
+      (sourceId, name, parent, lastModified, size, status, hash, created)
+    values (
+      <foreach collection="files" item="x" open="" close="" separator="),(">
+        #{x.source.id}, #{x.name}, #{x.parent}, #{x.lastModified},
+        #{x.size}, ${realtime}, #{x.hash.main}, #{instant}
+      </foreach>
+    )
+  </insert>
+</mapper>

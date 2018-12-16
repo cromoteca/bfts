@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+Copyright (C) 2014-2019 Luciano Vernaschi (luciano at cromoteca.com)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<configuration>
+
+  <statusListener class="ch.qos.logback.core.status.NopStatusListener"/>
+
+  <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${user.home}/.bfts/logFile.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${user.home}/.bfts/logFile.%d{yyyy-MM-dd}.log</fileNamePattern>
+    </rollingPolicy>
+
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} [%15.15thread] %-5level %logger{20} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <appender name="SYNC" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${user.home}/.bfts/sync.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${user.home}/.bfts/sync.%d{yyyy-MM-dd}.log</fileNamePattern>
+    </rollingPolicy>
+
+    <encoder>
+      <pattern>%d{HH:mm:ss} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <!-- encoders are assigned the type
+    ch.qos.logback.classic.encoder.PatternLayoutEncoder by default -->
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} [%15.15thread] %-5level %logger{20} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <logger name="com.cromoteca.bfts.client.ClientScheduler" level="debug"/>
+  <logger name="com.cromoteca.bfts.client.ClientActivities" level="debug"/>
+  <logger name="com.cromoteca.bfts.storage.LocalStorage" level="debug"/>
+  <logger name="com.cromoteca.bfts.restore" level="debug"/>
+  <logger name="ch.qos.logback" level="warn"/>
+
+  <logger name="sync" level="info" additivity="false">
+    <appender-ref ref="SYNC"/>
+  </logger>
+
+  <root level="info">
+    <appender-ref ref="STDOUT"/>
+    <appender-ref ref="FILE"/>
+  </root>
+</configuration>

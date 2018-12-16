@@ -1,0 +1,28 @@
+apply plugin: 'application'
+
+dependencies {
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+    compile project(':shared')
+
+    compile "ch.qos.logback:logback-classic:1.2.3"
+    compile "org.xerial:sqlite-jdbc:3.23.1"
+    compile "org.mybatis:mybatis:3.4.6"
+    compile "com.googlecode.clichemaven:cliche:110413"
+    compile "org.apache.ftpserver:ftpserver-core:1.1.1"
+    compile "org.apache.ftpserver:ftplet-api:1.1.1"
+    compile "org.apache.mina:mina-core:2.0.19"
+    compile "org.apache.commons:commons-collections4:4.2"
+    compile "org.ocpsoft.prettytime:prettytime:4.0.2.Final"
+
+    testCompile "junit:junit:4.12"
+    testCompile "org.mockito:mockito-core:2.21.0"
+}
+
+sourceCompatibility = "1.8"
+targetCompatibility = "1.8"
+
+mainClassName = "com.cromoteca.bfts.CommandLine"
+
+run {
+    standardInput = System.in
+}

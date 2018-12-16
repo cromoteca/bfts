@@ -1,0 +1,13 @@
+*.iml
+/.gradle/
+/local.properties
+/.idea/
+/.DS_Store
+/projectFilesBackup
+build/
+target/
+nbproject/
+nb-configuration.xml
+nbactions.xml
+licenseheader.txt
+

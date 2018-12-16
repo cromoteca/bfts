@@ -1,0 +1,44 @@
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- NOTE: EditTextPreference accepts EditText attributes. -->
+    <!-- NOTE: EditTextPreference's summary should be set to its value by the activity code. -->
+    <EditTextPreference
+        android:inputType="textNoSuggestions"
+        android:key="clientName"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:title="Client Name" />
+
+    <EditTextPreference
+        android:inputType="textPassword"
+        android:key="password"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:title="Password" />
+
+    <EditTextPreference
+        android:inputType="textNoSuggestions"
+        android:key="serverName"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:title="Server Name" />
+
+    <EditTextPreference
+        android:defaultValue="8715"
+        android:inputType="numberDecimal"
+        android:key="serverPort"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:title="Server Port" />
+
+    <SwitchPreference
+        android:defaultValue="false"
+        android:key="requireCharging"
+        android:title="Backup only while charging" />
+
+    <SwitchPreference
+        android:defaultValue="true"
+        android:key="requireWiFi"
+        android:title="Backup only while connected to Wi-Fi" />
+
+</PreferenceScreen>
