@@ -50,9 +50,9 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.SortedMap;
-import java.util.function.Function;
 import java.util.function.IntConsumer;
 import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
@@ -512,9 +512,12 @@ public class CommandLine {
     user.setName("anonymous");
     serverFactory.getUserManager().save(user);
 
-    BackupFileSystemFactory fileSystemFactory = new BackupFileSystemFactory(
-        clientName, Arrays.stream(CONFIG.getConnectedStorages())
-            .collect(Collectors.toMap(Function.identity(), this::getStorage)));
+    Map<String, Storage> map = Arrays.stream(CONFIG.getConnectedStorages())
+        .map(n -> new Pair<>(n, getStorage(n)))
+        .filter(p -> p.getSecond() != null)
+        .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+    BackupFileSystemFactory fileSystemFactory
+        = new BackupFileSystemFactory(clientName, map);
     serverFactory.setFileSystem(fileSystemFactory);
 
     FtpServer server = serverFactory.createServer();
