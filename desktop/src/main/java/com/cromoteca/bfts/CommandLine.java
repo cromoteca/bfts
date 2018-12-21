@@ -296,6 +296,19 @@ public class CommandLine {
   }
 
   @Command(description = "Make a complete backup of a source")
+  public void complete(@Param(name = "Storage name") String storageName) {
+    Storage storage = getStorage(storageName);
+    Filesystem fs = new Filesystem();
+    fs.setFilesystemScanSize(Integer.MAX_VALUE);
+    ClientActivities ca = new ClientActivities(CONFIG.getClientName(), fs,
+        storage, storageName, CONFIG.getLongOperationDuration());
+
+    for (Source source : storage.selectSources(CONFIG.getClientName())) {
+      doCompleteBackup(ca, source.getName());
+    }
+  }
+
+  @Command(description = "Make a complete backup of a source")
   public void complete(@Param(name = "Storage name") String storageName,
       @Param(name = "Source name") String sourceName) {
     Storage storage = getStorage(storageName);
@@ -303,6 +316,10 @@ public class CommandLine {
     fs.setFilesystemScanSize(Integer.MAX_VALUE);
     ClientActivities ca = new ClientActivities(CONFIG.getClientName(), fs,
         storage, storageName, CONFIG.getLongOperationDuration());
+    doCompleteBackup(ca, sourceName);
+  }
+
+  private void doCompleteBackup(ClientActivities ca, String sourceName) {
     Source source = ca.selectSource(false, sourceName);
 
     if (source == null) {
@@ -349,6 +366,9 @@ public class CommandLine {
             // start server and keep reference to be able to stop it
             IntConsumer stop = server.startHTTPServer(port);
             FACTORY.registerSingleton(IntConsumer.class, port, stop);
+          } catch (InitializationException ex) {
+            System.out.format("Storage server %s not started: %s\n", path,
+                ex.getMessage());
           } catch (IOException ex) {
             throw new RuntimeException(ex);
           }
@@ -369,15 +389,19 @@ public class CommandLine {
       try {
         Storage storage = getStorage(n);
 
-        // one ClientActivities object for each backup destination
-        ClientActivities ca = new ClientActivities(CONFIG.getClientName(),
-            filesystem, storage, n, CONFIG.getLongOperationDuration());
+        if (storage == null) {
+          System.out.format("Storage server %s is not available\n", n);
+        } else {
+          // one ClientActivities object for each backup destination
+          ClientActivities ca = new ClientActivities(CONFIG.getClientName(),
+              filesystem, storage, n, CONFIG.getLongOperationDuration());
 
-        // one scheduler for each backup destination
-        ClientScheduler cs = new ClientScheduler(ca, 5000);
-        FACTORY.registerSingleton(ClientScheduler.class, n, cs);
-        cs.start();
-        System.out.format("Client scheduler started for %s\n", n);
+          // one scheduler for each backup destination
+          ClientScheduler cs = new ClientScheduler(ca, 5000);
+          FACTORY.registerSingleton(ClientScheduler.class, n, cs);
+          cs.start();
+          System.out.format("Client scheduler started for %s\n", n);
+        }
       } catch (StorageException ex) {
         ex.printStackTrace(System.err);
       }
@@ -438,7 +462,8 @@ public class CommandLine {
       try {
         LocalStorage.get(path).close();
       } catch (InitializationException ex) {
-        ex.printStackTrace(System.err);
+        System.out.format("Storage server %s not stopped: %s\n", path,
+            ex.getMessage());
       }
     });
 
@@ -547,27 +572,30 @@ public class CommandLine {
   }
 
   private Storage getStorage(String storageName) {
-    return getStorage(CONFIG.getConnectedStoragePath(storageName),
-        CONFIG.getConnectedStorageEncryptionType(storageName));
-  }
+    String path = CONFIG.getConnectedStoragePath(storageName);
+    EncryptionType encryptionType
+        = CONFIG.getConnectedStorageEncryptionType(storageName);
+    Storage storage = null;
+    Pair<String, Integer> split = splitHostPort(path);
 
-  private Storage getStorage(String path, EncryptionType encryptionType) {
-    try {
-      Storage storage;
-      Pair<String, Integer> split = splitHostPort(path);
-
-      if (split == null) {
-        // local storage
+    if (split == null) {
+      // local storage
+      try {
         storage = LocalStorage.get(FilePath.get(path));
         System.out.format("Connected to local storage %s\n", path);
-      } else {
-        // remote storage
-        String host = split.getFirst();
-        int port = split.getSecond();
-        storage = RemoteStorage.create(host, port, askPassword());
-        System.out.format("Connected to remote storage %s\n", path);
+      } catch (InitializationException ex) {
+        System.out.format("Storage server %s not started: %s\n", path,
+            ex.getMessage());
       }
+    } else {
+      // remote storage
+      String host = split.getFirst();
+      int port = split.getSecond();
+      storage = RemoteStorage.create(host, port, askPassword());
+      System.out.format("Connected to remote storage %s\n", path);
+    }
 
+    if (storage != null) {
       switch (encryptionType) {
         case DATA:
           storage = EncryptedStorages.getEncryptedStorage(storage,
@@ -581,12 +609,10 @@ public class CommandLine {
           break;
         case NONE:
         // leave storage unencrypted
-      }
-
-      return storage;
-    } catch (IOException ex) {
-      throw new RuntimeException(ex);
+        }
     }
+
+    return storage;
   }
 
   /**

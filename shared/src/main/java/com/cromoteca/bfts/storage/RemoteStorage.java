@@ -55,8 +55,7 @@ public class RemoteStorage {
    * @param password encryption password
    * @return the storage
    */
-  public static Storage create(String host, int port, char[] password)
-      throws IOException {
+  public static Storage create(String host, int port, char[] password) {
     RemoteStorage remoteStorage = new RemoteStorage();
     remoteStorage.baseURL = "http://" + host + ':' + port + '/';
 
