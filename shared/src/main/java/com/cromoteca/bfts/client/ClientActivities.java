@@ -215,20 +215,6 @@ public class ClientActivities {
         List<File> files = filesystem.getFiles(FilePath.get(source.getRootPath()),
             lastPath, source.getIgnoredFileChecker());
 
-        // unfortunately, external drives can report a partial list of files
-        // when detaching them suddenly and the availability check is not enough
-        // so it's better to double-check at the cost of sacrificing an update
-        // in case of a real change between the two reads)
-        List<File> verification
-            = filesystem.getFiles(FilePath.get(source.getRootPath()),
-                lastPath, source.getIgnoredFileChecker());
-
-        if (!files.equals(verification)) {
-          log.debug("{}-{}->{}: something changed on disk, ignoring update",
-              client, source, connectionName);
-          return 0;
-        }
-
         count = files.size();
 
         // check availability as it might have changed while collecting files
