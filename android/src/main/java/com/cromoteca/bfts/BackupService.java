@@ -42,7 +42,6 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.stream.Stream;
 
-// ~/Programs/android-sdk/platform-tools/adb shell cmd jobscheduler run -f com.cromoteca.bfts 8715
 public class BackupService extends JobService {
     public static final int BACKUP_JOB_ID = 8715;
     private static final long DAY = 1000L * 60 * 60 * 24;
@@ -86,8 +85,6 @@ public class BackupService extends JobService {
 
                     Storage storage = RemoteStorage.create(config.getServerName(),
                             config.getServerPort(), password);
-                    // Storage storage = RemoteStorage.create("10.0.2.2", 8715, password);
-                    // Storage storage = RemoteStorage.create("192.168.1.133", 8715, password);
                     storage = EncryptedStorages.getEncryptedStorage(storage, password, false);
                     Filesystem filesystem = new Filesystem();
                     ClientActivities backup = new ClientActivities(clientName,

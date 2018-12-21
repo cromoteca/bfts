@@ -61,7 +61,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ftpserver.FtpServer;
 import org.apache.ftpserver.FtpServerFactory;
-import org.apache.ftpserver.filesystem.nativefs.NativeFileSystemFactory;
 import org.apache.ftpserver.ftplet.FtpException;
 import org.apache.ftpserver.listener.ListenerFactory;
 import org.apache.ftpserver.usermanager.impl.BaseUser;
@@ -468,31 +467,6 @@ public class CommandLine {
     });
 
     System.out.println("done");
-  }
-
-  // Not related to BFTS
-  // @Command(description = "Browse filesystem via FTP")
-  public void ftpFilesystem() throws FtpException, IOException {
-    FtpServerFactory serverFactory = new FtpServerFactory();
-    ListenerFactory factory = new ListenerFactory();
-    factory.setPort(9713);
-    serverFactory.addListener("default", factory.createListener());
-
-    BaseUser user = new BaseUser();
-    user.setName("anonymous");
-    serverFactory.getUserManager().save(user);
-
-    NativeFileSystemFactory fileSystemFactory = new NativeFileSystemFactory();
-    serverFactory.setFileSystem(fileSystemFactory);
-
-    FtpServer server = serverFactory.createServer();
-    server.start();
-
-    if (Util.isWindows()) {
-      Runtime.getRuntime().exec("explorer.exe " + FTP_URL);
-    } else {
-      System.out.println("Please open " + FTP_URL);
-    }
   }
 
   @Command(description = "Browse backup")
