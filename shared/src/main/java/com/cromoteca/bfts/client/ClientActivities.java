@@ -221,10 +221,10 @@ public class ClientActivities {
         if (count > 0 && source.isAvailable()) {
           TaskDuration duration = new TaskDuration();
           // send file information to storage (returns the number of new files)
-          int newFiles = storage.addFiles(source.getId(),
+          count = storage.addFiles(source.getId(),
               source.getNewestFile().getId(), files);
           log.debug("{}-{}->{}: sent {} files in {} seconds ({} files are new)",
-              client, source, connectionName, files.size(), duration, newFiles);
+              client, source, connectionName, files.size(), duration, count);
         }
       } catch (IOException ex) {
         log.error(null, ex);
