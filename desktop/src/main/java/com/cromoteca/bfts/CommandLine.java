@@ -80,6 +80,7 @@ import org.ocpsoft.prettytime.PrettyTime;
  * @author Luciano Vernaschi (luciano at cromoteca.com)
  */
 public class CommandLine {
+  private static final String FTP_URL = "ftp://localhost:3715/";
   private static final Pattern HOST_PORT = Pattern.compile("(.+):(\\d+)");
   private static final Factory FACTORY = new Factory();
   private static Shell shell;
@@ -462,7 +463,11 @@ public class CommandLine {
     FtpServer server = serverFactory.createServer();
     server.start();
 
-    Runtime.getRuntime().exec("explorer.exe ftp://localhost:3715/");
+    if (Util.isWindows()) {
+      Runtime.getRuntime().exec("explorer.exe " + FTP_URL);
+    } else {
+      System.out.println("Please open " + FTP_URL);
+    }
   }
 
   @Command(description = "Browse backup")
@@ -490,8 +495,12 @@ public class CommandLine {
     FtpServer server = serverFactory.createServer();
     server.start();
 
-    Runtime.getRuntime().exec("explorer.exe ftp://localhost:3715/"
-        + BackupFileSystemView.FORMATTER.format(new Date()));
+    if (Util.isWindows()) {
+      Runtime.getRuntime().exec("explorer.exe " + FTP_URL
+          + BackupFileSystemView.FORMATTER.format(new Date()));
+    } else {
+      System.out.println("Please open " + FTP_URL);
+    }
   }
 
   @Command(description = "Get backup stats")

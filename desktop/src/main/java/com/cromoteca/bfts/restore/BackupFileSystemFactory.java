@@ -33,7 +33,8 @@ public class BackupFileSystemFactory implements FileSystemFactory {
   private final String clientName;
   private final Map<String, Storage> storages;
 
-  public BackupFileSystemFactory(String clientName, Map<String, Storage> storages) {
+  public BackupFileSystemFactory(String clientName,
+      Map<String, Storage> storages) {
     this.clientName = clientName;
     this.storages = storages;
   }
