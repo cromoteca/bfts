@@ -175,7 +175,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     create view friendly_file_view as
     select f.id as id, f.name as name, f.parent as parent, f.size as size,
            datetime(f.lastModified/1000, 'unixepoch') as lastModifiedTime,
-           hex(f.hash) as hashString,
+           substr(hex(f.hash), 1, 12) as hashString,
            datetime(f.created/1000, 'unixepoch') as createdTime,
            case
              when f.status &lt;= 0 then f.status
