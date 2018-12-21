@@ -694,8 +694,11 @@ public class Filesystem {
         List<Chunk> chunks = new ArrayList<>();
         byte[] buf = hashBufferFactory.obtain(byte[].class);
         int read;
+        long totalRead = 0;
 
         while ((read = dis.read(buf)) != -1) {
+          totalRead += read;
+
           if (partialHashes) {
             chunkDigest.update(buf, 0, read);
             Chunk c = new Chunk();
@@ -705,7 +708,12 @@ public class Filesystem {
           }
         }
 
-        h.setChunks(chunks);
+        if (totalRead == p.size()) {
+          h.setChunks(chunks);
+        } else {
+          throw new IOException(String.format("%d bytes were read instead of %d",
+              totalRead, p.size()));
+        }
       }
 
       h.setMain(fullDigest.digest(longToBytes(fileSize)));
