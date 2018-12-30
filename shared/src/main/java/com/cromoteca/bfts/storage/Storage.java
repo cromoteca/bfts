@@ -195,15 +195,6 @@ public interface Storage {
    */
   SortedMap<String, Stats> getDetailedClientStats(String clientName);
 
-  /**
-   * Returns a list of all chunks that have been uploaded in a specified range
-   * (mostly useful for maintenance tasks)
-   *
-   * @param from lower limit
-   * @param to   upper limit (can be null)
-   */
-  List<Chunk> getUploadedChunks(byte[] from, byte[] to);
-
   void deleteFilesInRealtime(List<DeletedFileInfo> files);
 
   void addFilesInRealtime(List<File> files);

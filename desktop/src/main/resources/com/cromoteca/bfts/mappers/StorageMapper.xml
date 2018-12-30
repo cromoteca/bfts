@@ -487,20 +487,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     )
   </insert>
 
-  <select id="getUploadedChunks" resultType="Chunk">
-    select position as "index", length, chunk as hash
-    from hashes
-    <choose>
-      <when test="to == null">
-        where chunk > #{from}
-      </when>
-      <otherwise>
-        where chunk between #{from} and #{to}
-      </otherwise>
-    </choose>
-    and uploaded is not null
-  </select>
-
   <update id="deleteChunk">
     update hashes
     set uploaded = null

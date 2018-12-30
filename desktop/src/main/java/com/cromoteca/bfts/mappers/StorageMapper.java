@@ -285,12 +285,6 @@ public interface StorageMapper {
       @Param("files") List<File> files);
 
   /**
-   * Return all already uploaded chunks included between some limits
-   */
-  List<Chunk> getUploadedChunks(@Param("from") byte[] from,
-      @Param("to") byte[] to);
-
-  /**
    * Deletes a chunk
    */
   void deleteChunk(@Param("hash") byte[] hash);
