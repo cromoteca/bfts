@@ -57,7 +57,7 @@ public class BackupService extends JobService {
                     .setRequiresCharging(configBean.isRequireCharging())
                     .setRequiredNetworkType(configBean.isRequireWiFi()
                             ? JobInfo.NETWORK_TYPE_UNMETERED : JobInfo.NETWORK_TYPE_ANY)
-                    .setPeriodic(5 * 60 * 1000) // will be clamped to 15 minutes
+                    .setPeriodic(30 * 60 * 1000) // 30 minutes
                     .setPersisted(true)
                     .setRequiresBatteryNotLow(true);
             JobInfo jobInfo = jobBuilder.build();
