@@ -85,6 +85,10 @@ public class UtilTest {
     assertTrue(Util.validName("aGoodName"));
     assertTrue(Util.validName("A_GOOD_NAME"));
     assertTrue(Util.validName("a-good-name"));
+    assertTrue(Util.validName("a1"));
+    assertTrue(Util.validName("aGoodName1"));
+    assertTrue(Util.validName("A_GOOD_NAME_1"));
+    assertTrue(Util.validName("a-good-name-1"));
     assertFalse(Util.validName(""));
     assertFalse(Util.validName(" "));
     assertFalse(Util.validName("a "));
