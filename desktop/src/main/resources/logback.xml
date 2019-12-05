@@ -54,7 +54,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
   <logger name="com.cromoteca.bfts.client.ClientScheduler" level="debug"/>
   <logger name="com.cromoteca.bfts.client.ClientActivities" level="debug"/>
   <logger name="com.cromoteca.bfts.storage.LocalStorage" level="debug"/>
-  <logger name="com.cromoteca.bfts.restore" level="debug"/>
   <logger name="ch.qos.logback" level="warn"/>
 
   <logger name="sync" level="info" additivity="false">
