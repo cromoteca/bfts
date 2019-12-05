@@ -1,12 +1,12 @@
 apply plugin: 'java-library'
 
 dependencies {
-    compile fileTree(dir: 'libs', include: ['*.jar'])
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
 
-    compile "ch.qos.logback:logback-classic:1.2.3"
-    compile "com.fasterxml.jackson.core:jackson-core:2.9.6"
-    compile "com.fasterxml.jackson.core:jackson-databind:2.9.6"
-    compile "com.googlecode:openbeans:1.0"
+    implementation "ch.qos.logback:logback-classic:1.2.3"
+    implementation "com.fasterxml.jackson.core:jackson-core:2.10.1"
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.10.1"
+    implementation "com.googlecode:openbeans:1.0"
 }
 
 sourceCompatibility = "1.8"
