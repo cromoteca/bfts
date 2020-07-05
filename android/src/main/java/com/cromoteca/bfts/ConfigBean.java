@@ -17,8 +17,8 @@
 package com.cromoteca.bfts;
 
 import android.content.SharedPreferences;
-import android.databinding.BaseObservable;
-import android.databinding.Bindable;
+import androidx.databinding.BaseObservable;
+import androidx.databinding.Bindable;
 
 public class ConfigBean extends BaseObservable {
     public static final String SHARED_PREFERENCES_NAME = "BackupPreferences";
