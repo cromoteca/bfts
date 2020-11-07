@@ -686,11 +686,6 @@ public class LocalStorage implements Storage, AutoCloseable {
         + System.currentTimeMillis() + File.BFTS_SUFFIX);
   }
 
-  // used in tests
-  SqlSessionFactory getFactory() {
-    return factory;
-  }
-
   public void addKeyPair(byte[][] keyPair) {
     run(mapper -> {
       mapper.addKeyPair(keyPair[0], keyPair[1]);
@@ -782,7 +777,7 @@ public class LocalStorage implements Storage, AutoCloseable {
    * @param <T>         return type
    * @param sqlFunction a function that can use a SqlSession to run SQL
    */
-  private <T> T runSQL(SQLFunction<T> sqlFunction) {
+  public final <T> T runSQL(SQLFunction<T> sqlFunction) {
     try {
       return sqlExecutor.submit(() -> {
         T result = null;
@@ -790,7 +785,7 @@ public class LocalStorage implements Storage, AutoCloseable {
         try (SqlSession session = factory.openSession()) {
           result = sqlFunction.execute(session);
           session.commit();
-        } catch (SQLException ex) {
+        } catch (SQLException | IOException ex) {
           throw new StorageException(ex);
         }
 
@@ -809,7 +804,7 @@ public class LocalStorage implements Storage, AutoCloseable {
    * Functional interface that throws <code>SQLException</code>s.
    */
   @FunctionalInterface
-  private interface SQLFunction<T> {
-    T execute(SqlSession session) throws SQLException;
+  public interface SQLFunction<T> {
+    T execute(SqlSession session) throws SQLException, IOException;
   }
 }

@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.ibatis.session.SqlSession;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -66,12 +65,10 @@ public class LocalStorageTest {
 
   @Test
   public void testSelectSource() throws Exception {
-    SQLScriptVars vars;
-
-    try (SqlSession session = storage.getFactory().openSession()) {
-      vars = new SQLScript().run(session.getConnection(),
+    SQLScriptVars vars = storage.runSQL(session -> {
+      return new SQLScript().run(session.getConnection(),
           getClass().getResource("LocalStorage.selectSource.sql"));
-    }
+    });
 
     Source source = storage.selectSources(vars.getString("clientName")).get(0);
     assertEquals(vars.getString("sourceName2"), source.getName());
@@ -82,10 +79,10 @@ public class LocalStorageTest {
     SQLScript script = new SQLScript();
     SQLScriptVars vars;
 
-    try (SqlSession session = storage.getFactory().openSession()) {
-      vars = script.run(session.getConnection(),
+    vars = storage.runSQL(session -> {
+      return script.run(session.getConnection(),
           getClass().getResource("LocalStorage.addFiles.sql"));
-    }
+    });
 
     List<File> files = Arrays.asList(new File[] {
       // add a file that doesn't exist in the database
@@ -103,38 +100,39 @@ public class LocalStorageTest {
 
     String fileCount = "fileCount :: select count(*) from files"
         + " where sourceId = ${sourceId} and status = 0";
-    try (SqlSession session = storage.getFactory().openSession()) {
-      script.run(session.getConnection(), fileCount);
-    }
+    storage.runSQL(session -> {
+      return script.run(session.getConnection(), fileCount);
+    });
     assertEquals(4, vars.getInt("fileCount"));
 
     // IllegalArgumentException here: empty source
-    storage.addFiles(sourceId, storage.getLastFile(sourceId).getId(), new ArrayList<>());
+    storage.addFiles(sourceId, storage.getLastFile(sourceId).getId(),
+        new ArrayList<>());
   }
 
   @Test
   public void testGetNotHashedFiles() throws Exception {
     SQLScript script = new SQLScript();
     SQLScriptVars vars;
-    try (SqlSession session = storage.getFactory().openSession()) {
-      vars = script.run(session.getConnection(),
+    vars = storage.runSQL(session -> {
+      return script.run(session.getConnection(),
           getClass().getResource("LocalStorage.addFiles.sql"));
-    }
+    });
     String countFiles = "countFiles :: select count(*) from files"
         + " where hash is null and lastModified > 0";
 
-    try (SqlSession session = storage.getFactory().openSession()) {
-      script.run(session.getConnection(), countFiles);
-    }
+    storage.runSQL(session -> {
+      return script.run(session.getConnection(), countFiles);
+    });
     List<File> files = storage.getNotHashedFiles(vars.getString("clientName"),
         FileStatus.CURRENT.getCode(), 100);
     int sizeBefore = files.size();
     assertEquals(vars.getInt("countFiles"), sizeBefore);
 
-    try (SqlSession session = storage.getFactory().openSession()) {
-      script.run(session.getConnection(), "update files set hash = 'abc'"
+    storage.runSQL(session -> {
+      return script.run(session.getConnection(), "update files set hash = 'abc'"
           + " where name = 'file2' and parent = 'dir1'", countFiles);
-    }
+    });
     files = storage.getNotHashedFiles(vars.getString("clientName"),
         FileStatus.CURRENT.getCode(), 100);
     int sizeAfter = files.size();
@@ -146,10 +144,10 @@ public class LocalStorageTest {
   public void testUpdateHashes() throws Exception {
     SQLScript script = new SQLScript();
     SQLScriptVars vars;
-    try (SqlSession session = storage.getFactory().openSession()) {
-      vars = script.run(session.getConnection(),
+    vars = storage.runSQL(session -> {
+      return script.run(session.getConnection(),
           getClass().getResource("LocalStorage.addFiles.sql"));
-    }
+    });
     int chunkSize = 4096;
 
     Source source = new Source();
@@ -177,27 +175,28 @@ public class LocalStorageTest {
     }));
     file2.setHash(hash2);
 
-    try (SqlSession session = storage.getFactory().openSession()) {
-      script.run(session.getConnection(), "delete from hashes");
-    }
+    storage.runSQL(session -> {
+      return script.run(session.getConnection(), "delete from hashes");
+    });
 
     storage.updateHashes(Arrays.asList(new File[] { file1, file2 }));
 
-    try (SqlSession session = storage.getFactory().openSession()) {
-      script.run(session.getConnection(),
+    storage.runSQL(session -> {
+      return script.run(session.getConnection(),
           "count :: select count(*) from files where hash is not null");
-    }
+    });
     assertEquals(2, vars.getInt("count"));
 
-    try (SqlSession session = storage.getFactory().openSession()) {
-      script.run(session.getConnection(), "count :: select count(*) from hashes");
-    }
+    storage.runSQL(session -> {
+      return script.run(session.getConnection(),
+          "count :: select count(*) from hashes");
+    });
     assertEquals(6, vars.getInt("count"));
 
-    try (SqlSession session = storage.getFactory().openSession()) {
-      script.run(session.getConnection(),
+    storage.runSQL(session -> {
+      return script.run(session.getConnection(),
           "count :: select count(distinct chunk) from hashes");
-    }
+    });
     assertEquals(5, vars.getInt("count"));
   }
 
@@ -208,10 +207,10 @@ public class LocalStorageTest {
     int chunkSize = 4096;
     vars.put("chunkSize", chunkSize);
 
-    try (SqlSession session = storage.getFactory().openSession()) {
-      script.run(session.getConnection(),
+    storage.runSQL(session -> {
+      return script.run(session.getConnection(),
           getClass().getResource("LocalStorage.getNotUploadedChunks.sql"));
-    }
+    });
 
     // first client has two sources, must get chunks from both
     List<Chunk> chunks
