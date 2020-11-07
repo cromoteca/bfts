@@ -672,10 +672,13 @@ public class LocalStorage implements Storage, AutoCloseable {
             TreeMap::new));
   }
 
+  public FilePath getChunksDir() {
+    return storagePath.resolve("chunks");
+  }
+
   public FilePath getChunkPath(byte[] hash) {
     String fileName = Hex.printHexBinary(hash, 0, Math.min(hash.length, 64));
-    return storagePath.resolve(FilePath.get("chunks", fileName.substring(0, 2),
-        fileName));
+    return getChunksDir().resolve(fileName.substring(0, 2)).resolve(fileName);
   }
 
   private FilePath getTempFile(String baseName) {

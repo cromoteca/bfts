@@ -257,7 +257,7 @@ public class LocalStorageTest {
     hashList.stream().forEach(hash -> {
       String fileName = Hex.printHexBinary(hash);
       String dirName = fileName.substring(0, 2);
-      FilePath chunkDir = storageDir.resolve("chunks").resolve(dirName);
+      FilePath chunkDir = storage.getChunksDir().resolve(dirName);
       assertTrue(chunkDir.exists());
 
       try (Stream<FilePath> list = chunkDir.list()) {
