@@ -16,7 +16,7 @@
  */
 package com.cromoteca.bfts.testutil;
 
-public class SQLScriptException extends Exception {
+public class SQLScriptException extends RuntimeException {
   public SQLScriptException() {
   }
 

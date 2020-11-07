@@ -50,7 +50,7 @@ public class SQLScriptTest {
 
     try {
       new SQLScript().run(connection, resource);
-      fail("Should have thrown ScriptException");
+      fail("Should have thrown SQLScriptException");
     } catch (SQLScriptException ex) {
       assertTrue(ex.getMessage().endsWith("is not a valid variable name"));
     }
@@ -62,7 +62,7 @@ public class SQLScriptTest {
 
     try {
       new SQLScript().run(connection, resource);
-      fail("Should have thrown ScriptException");
+      fail("Should have thrown SQLScriptException");
     } catch (SQLScriptException ex) {
       assertTrue(ex.getMessage().indexOf("invalid") > 0);
     }
@@ -74,7 +74,7 @@ public class SQLScriptTest {
 
     try {
       new SQLScript().run(connection, resource);
-      fail("Should have thrown ScriptException");
+      fail("Should have thrown SQLScriptException");
     } catch (SQLScriptException ex) {
       assertTrue(ex.getMessage().indexOf("invalid") > 0);
     }
@@ -95,7 +95,7 @@ public class SQLScriptTest {
 
     try {
       new SQLScript().run(connection, resource);
-      fail("Should have thrown ScriptException");
+      fail("Should have thrown SQLScriptException");
     } catch (SQLScriptException ex) {
       assertTrue(ex.getMessage().endsWith("is not defined"));
     }
