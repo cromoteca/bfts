@@ -195,7 +195,7 @@ public class Util {
     return predicate.negate();
   }
 
-  public static IntPredicate not(IntPredicate predicate) {
+  public static IntPredicate intNot(IntPredicate predicate) {
     return predicate.negate();
   }
 

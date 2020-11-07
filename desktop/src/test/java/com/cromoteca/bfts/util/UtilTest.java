@@ -103,7 +103,7 @@ public class UtilTest {
     IntPredicate even = i -> i % 2 == 0;
     assertTrue(IntStream.rangeClosed(1, 10).filter(even)
         .filter(i -> i == 4).count() == 1);
-    assertTrue(IntStream.rangeClosed(1, 10).filter(Util.not(even))
+    assertTrue(IntStream.rangeClosed(1, 10).filter(Util.intNot(even))
         .filter(i -> i == 4).count() == 0);
   }
 

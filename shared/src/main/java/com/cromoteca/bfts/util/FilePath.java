@@ -257,6 +257,10 @@ public class FilePath implements Comparable<FilePath> {
     return Files.list(p).map(FilePath::new);
   }
 
+  public Stream<FilePath> walk() throws IOException {
+    return Files.walk(p).map(FilePath::new);
+  }
+
   public boolean isMatchedBy(PathMatcher... matchers) {
     return Arrays.stream(matchers).anyMatch(m -> m.matches(p));
   }

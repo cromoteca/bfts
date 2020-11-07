@@ -67,6 +67,14 @@ public class Hex {
       r.append(hexCode[(b >> 4) & 0xF]);
       r.append(hexCode[(b & 0xF)]);
     }
+
     return r.toString();
+  }
+
+  public static String byteToString(byte b) {
+    return new String(new char[] {
+      (hexCode[(b >> 4) & 0xF]),
+      (hexCode[(b & 0xF)])
+    });
   }
 }
