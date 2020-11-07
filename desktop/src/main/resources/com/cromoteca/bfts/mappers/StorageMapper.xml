@@ -487,6 +487,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     )
   </insert>
 
+  <select id="getUploadedChunks" resultType="Chunk">
+    select id, position as "index", length, chunk as hash
+    from hashes
+    where substr(chunk, 1, 1) = #{firstByte}
+    and uploaded is not null
+    order by id
+  </select>
+
   <update id="deleteChunk">
     update hashes
     set uploaded = null

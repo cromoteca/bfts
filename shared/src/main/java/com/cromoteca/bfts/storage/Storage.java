@@ -195,6 +195,16 @@ public interface Storage {
    */
   SortedMap<String, Stats> getDetailedClientStats(String clientName);
 
+  /**
+   * Returns a list of all chunks that have been uploaded in a specified range
+   * (mostly useful for maintenance tasks)
+   *
+   * @param firstByte the first byte to search
+   */
+  List<Chunk> getUploadedChunks(byte firstByte);
+
+  void deleteChunk(byte[] hash);
+
   void deleteFilesInRealtime(List<DeletedFileInfo> files);
 
   void addFilesInRealtime(List<File> files);

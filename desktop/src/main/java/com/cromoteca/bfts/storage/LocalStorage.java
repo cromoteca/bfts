@@ -703,6 +703,14 @@ public class LocalStorage implements Storage, AutoCloseable {
     });
   }
 
+  @Override
+  public List<Chunk> getUploadedChunks(byte firstByte) {
+    return run(mapper -> {
+      return mapper.getUploadedChunks(new byte[] { firstByte });
+    });
+  }
+
+  @Override
   public void deleteChunk(byte[] hash) {
     run(mapper -> {
       mapper.deleteChunk(hash);
