@@ -520,4 +520,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
       </foreach>
     )
   </insert>
+
+  <update id="purgeChunks">
+    delete from hashes
+    where main not in (
+      select hash
+      from files
+      where hash is not null
+    )
+  </update>
 </mapper>

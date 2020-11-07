@@ -29,6 +29,7 @@ import com.cromoteca.bfts.model.Stats;
 import com.cromoteca.bfts.model.StorageConfiguration;
 import com.cromoteca.bfts.util.Cached;
 import com.cromoteca.bfts.util.Container;
+import com.cromoteca.bfts.util.Counter;
 import com.cromoteca.bfts.util.FilePath;
 import com.cromoteca.bfts.util.Hex;
 import com.cromoteca.bfts.util.TaskDuration;
@@ -64,6 +65,7 @@ import org.apache.ibatis.session.SqlSessionFactoryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.cromoteca.bfts.util.Util.*;
 import static java.util.stream.Collectors.*;
 
 /**
@@ -739,6 +741,63 @@ public class LocalStorage implements Storage, AutoCloseable {
       });
 
       return null;
+    });
+  }
+
+  @Override
+  public void purgeChunks() {
+    run(mapper -> {
+      mapper.purgeChunks();
+      return null;
+    });
+  }
+
+  @Override
+  public Pair<Integer, Long> deleteUnusedChunkFiles() {
+    return run(mapper -> {
+      FilePath chunksPath = getChunksDir();
+      Counter reclaimedSpace = new Counter();
+      int total = 0;
+
+      for (int i = 0; i < 256; i++) {
+        byte bi = (byte) i;
+        List<Chunk> chunks = mapper.getUploadedChunks(new byte[] { bi });
+        Set<FilePath> expectedChunks = chunks.stream()
+            .map(c -> getChunkPath(c.getHash()))
+            .collect(Collectors.toSet());
+
+        String prefix = Hex.byteToString(bi);
+        FilePath dir = chunksPath.resolve(prefix);
+
+        if (dir.isDirectory()) {
+          long count;
+
+          try {
+            count = dir.list()
+                .filter(not(expectedChunks::contains))
+                .peek(fp -> {
+                  try {
+                    reclaimedSpace.add(fp.size());
+                    fp.delete();
+                  } catch (IOException ex) {
+                    throw new StorageException(ex);
+                  }
+                })
+                .count();
+            total += (int) count;
+          } catch (IOException ex) {
+            throw new StorageException(ex);
+          }
+
+          if (count > 0) {
+            log.debug("{} chunks deleted with prefix {}", count, prefix);
+          }
+        }
+      }
+
+      log.info("{} chunks deleted for a total of {} bytes", total,
+          reclaimedSpace);
+      return new Pair<>(total, reclaimedSpace.get());
     });
   }
 

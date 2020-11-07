@@ -537,6 +537,15 @@ public class CommandLine {
     setFast(false);
   }
 
+  @Command(description = "Deletes unreferenced files")
+  public void reclaimSpace(@Param(name = "Storage name") String storageName) {
+    Storage storage = getStorage(storageName);
+    storage.purgeChunks();
+    Pair<Integer, Long> result = storage.deleteUnusedChunkFiles();
+    System.out.format("%d files deleted for a total of %d bytes reclaimed\n",
+        result.getFirst(), result.getSecond());
+  }
+
   private void setFast(boolean fast) {
     Arrays.stream(CONFIG.getConnectedStorages())
         .forEach(name -> {

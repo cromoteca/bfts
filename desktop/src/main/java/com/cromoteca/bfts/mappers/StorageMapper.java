@@ -306,4 +306,9 @@ public interface StorageMapper {
    */
   void addFilesInRealtime(@Param("files") List<File> files,
       @Param("instant") long instant);
+
+  /**
+   * Deletes all chunk information about files no longer mentioned in the backup
+   */
+  void purgeChunks();
 }

@@ -208,4 +208,8 @@ public interface Storage {
   void deleteFilesInRealtime(List<DeletedFileInfo> files);
 
   void addFilesInRealtime(List<File> files);
+
+  void purgeChunks();
+
+  Pair<Integer,Long> deleteUnusedChunkFiles();
 }
