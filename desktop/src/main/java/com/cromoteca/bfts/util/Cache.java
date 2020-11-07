@@ -57,7 +57,7 @@ public class Cache {
     Class<?>[] classArray = object.getClass().getInterfaces();
 
     return (T) Proxy.newProxyInstance(loader, classArray, (p, m, a) -> {
-      List<String> params = Arrays.stream(a)
+      List<String> params = a == null ? null : Arrays.stream(a)
           .map(Objects::toString)
           .collect(Collectors.toList());
       String method = m.getName();

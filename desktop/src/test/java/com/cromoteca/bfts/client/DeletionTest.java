@@ -17,8 +17,10 @@
 package com.cromoteca.bfts.client;
 
 import com.cromoteca.bfts.model.StorageConfiguration;
+import com.cromoteca.bfts.storage.EncryptedStorages;
 import com.cromoteca.bfts.storage.FileStatus;
 import com.cromoteca.bfts.storage.LocalStorage;
+import com.cromoteca.bfts.storage.Storage;
 import com.cromoteca.bfts.testutil.DirectoryWalker;
 import com.cromoteca.bfts.testutil.SQLScript;
 import com.cromoteca.bfts.testutil.TestUtils;
@@ -41,6 +43,7 @@ public class DeletionTest {
   private static final String SOURCE = "applets";
   private static ClientActivities client;
   private static LocalStorage localStorage;
+  private static Storage storage;
   private static FilePath sourcePath;
 
   @BeforeClass
@@ -50,11 +53,13 @@ public class DeletionTest {
     TEST_DIR.createDirectories();
     StorageConfiguration storageConfig = new StorageConfiguration();
     localStorage = LocalStorage.init(TEST_DIR, false, storageConfig);
+    storage = EncryptedStorages.getEncryptedStorage(localStorage,
+        "123456".toCharArray(), true);
     FilePath clientDir = TEST_DIR.resolve(CLIENT);
     TestUtils.unzipSampleFiles(clientDir, SOURCE);
     sourcePath = clientDir.resolve(SOURCE);
-    localStorage.addSource(CLIENT, SOURCE, sourcePath.toString());
-    client = new ClientActivities(CLIENT, fs, localStorage, "local", 30);
+    storage.addSource(CLIENT, SOURCE, sourcePath.toString());
+    client = new ClientActivities(CLIENT, fs, storage, "local", 30);
   }
 
   @AfterClass
@@ -68,7 +73,7 @@ public class DeletionTest {
     client.sendFiles(client.selectSource(false));
     client.sendFiles(client.selectSource(false));
     client.sendFiles(client.selectSource(false));
-    assertEquals(41, localStorage.getClientStats(CLIENT).getFiles());
+    assertEquals(41, storage.getClientStats(CLIENT).getFiles());
 
     client.sendHashes(FileStatus.CURRENT);
     client.uploadChunks(FileStatus.CURRENT);
@@ -85,7 +90,7 @@ public class DeletionTest {
 
     client.sendFiles(client.selectSource(false));
     client.sendFiles(client.selectSource(false));
-    assertEquals(33, localStorage.getClientStats(CLIENT).getFiles());
+    assertEquals(33, storage.getClientStats(CLIENT).getFiles());
 
     SQLScript script = new SQLScript();
     localStorage.runSQL(session -> {
@@ -95,8 +100,8 @@ public class DeletionTest {
 
     FilePath chunksPath = localStorage.getChunksDir();
     long before = chunksPath.walk().count();
-    localStorage.purgeChunks();
-    localStorage.deleteUnusedChunkFiles();
+    storage.purgeChunks();
+    storage.deleteUnusedChunkFiles();
     long after = chunksPath.walk().count();
     assertEquals(8, before - after);
   }

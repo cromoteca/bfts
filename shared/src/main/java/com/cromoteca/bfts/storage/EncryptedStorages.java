@@ -59,7 +59,7 @@ public class EncryptedStorages {
     Class[] storageClass = new Class[] { Storage.class };
 
     return (Storage) Proxy.newProxyInstance(loader, storageClass, (p, m, a) -> {
-      Object[] args = Arrays.stream(a)
+      Object[] args = a == null ? null : Arrays.stream(a)
           .map(o -> doEncryptionDecryption(o, crypto.getValue(), true,
           encryptStrings))
           .toArray(Object[]::new);
