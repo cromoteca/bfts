@@ -102,6 +102,21 @@ public class CommandLine {
       if (args.length > 1) {
         cl.setFast(Boolean.parseBoolean(args[1]));
       }
+    } else if (args.length > 2 && "init".equals(args[0])) {
+      // example: java -jar bfts.jar init storagename /my/storage/path 8715 mypassword
+      // create a storage
+      CommandLine cl = new CommandLine();
+
+      String name = args[1];
+      String path = args[2];
+      cl.init(name, path, false);
+
+      if (args.length > 4) {
+        cl.password = args[4].toCharArray();
+        cl.publish(name, Integer.parseInt(args[3]));
+      }
+
+      cl.quit();
     } else {
       // use client name as prompt
       String name = CONFIG.getClientName();
