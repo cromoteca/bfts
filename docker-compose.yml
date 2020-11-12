@@ -1,0 +1,11 @@
+# Run with:
+# docker-compose up -d --build bfts
+# if you want to make sure you're using the latest JAR
+version: '3'
+services:
+  bfts:
+    build:
+      context: desktop/target
+      dockerfile: ./classes/docker/Dockerfile
+    ports:
+      - "18715:8715"
