@@ -11,3 +11,10 @@ nb-configuration.xml
 nbactions.xml
 licenseheader.txt
 
+# vscode
+shared/bin
+desktop/bin
+.settings/
+.project
+.classpath
+.vscode/
