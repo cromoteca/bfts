@@ -25,6 +25,7 @@ import com.cromoteca.bfts.model.Stats;
 import com.cromoteca.bfts.model.StorageConfiguration;
 import com.cromoteca.bfts.util.lambdas.IOSupplier;
 import java.util.List;
+import java.util.Map;
 import java.util.SortedMap;
 
 /**
@@ -189,6 +190,8 @@ public interface Storage {
    * Returns some statistics for a client.
    */
   Stats getClientStats(String clientName);
+
+  Map<String, Long> getClientsLastUpdated();
 
   /**
    * Returns some statistics for each source of a client.

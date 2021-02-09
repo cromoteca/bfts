@@ -664,6 +664,15 @@ public class LocalStorage implements Storage, AutoCloseable {
   }
 
   @Override
+  public Map<String, Long> getClientsLastUpdated() {
+    return run(mapper -> {
+      return mapper.getClientsLastUpdated().stream()
+          .collect(Collectors.toMap(m -> (String) m.get("client"),
+                   m -> ((Number) m.get("lastUpdated")).longValue()));
+    });
+  }
+
+  @Override
   public SortedMap<String, Stats> getDetailedClientStats(String clientName) {
     List<Source> sources = run(mapper -> {
       return mapper.getSources(clientName);

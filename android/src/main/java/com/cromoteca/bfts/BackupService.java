@@ -16,7 +16,6 @@
  */
 package com.cromoteca.bfts;
 
-import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.job.JobInfo;
 import android.app.job.JobParameters;
@@ -24,7 +23,6 @@ import android.app.job.JobScheduler;
 import android.app.job.JobService;
 import android.content.ComponentName;
 import android.media.MediaScannerConnection;
-import android.os.AsyncTask;
 import android.os.Environment;
 import android.preference.PreferenceManager;
 
@@ -45,7 +43,9 @@ import java.util.stream.Stream;
 public class BackupService extends JobService {
     public static final int BACKUP_JOB_ID = 8715;
     private static final long DAY = 1000L * 60 * 60 * 24;
+    private static final int PERIOD = 30 * 60 * 1000; // 30 minutes
     static Logger log = LoggerFactory.getLogger(BackupService.class);
+    private Thread executingThread;
 
     public static void scheduleJob(Activity activity) {
         ConfigBean configBean = new ConfigBean(PreferenceManager.getDefaultSharedPreferences(activity));
@@ -57,7 +57,7 @@ public class BackupService extends JobService {
                     .setRequiresCharging(configBean.isRequireCharging())
                     .setRequiredNetworkType(configBean.isRequireWiFi()
                             ? JobInfo.NETWORK_TYPE_UNMETERED : JobInfo.NETWORK_TYPE_ANY)
-                    .setPeriodic(30 * 60 * 1000) // 30 minutes
+                    .setPeriodic(PERIOD, PERIOD)
                     .setPersisted(true)
                     .setRequiresBatteryNotLow(true);
             JobInfo jobInfo = jobBuilder.build();
@@ -67,89 +67,92 @@ public class BackupService extends JobService {
         }
     }
 
-    @SuppressLint("StaticFieldLeak")
     @Override
     public boolean onStartJob(JobParameters jobParameters) {
-        new AsyncTask<Void, Void, Integer>() {
-            @Override
-            protected Integer doInBackground(Void... params) {
-                int count = 0;
-
-                try {
-                    ConfigBean config = new ConfigBean(PreferenceManager
-                            .getDefaultSharedPreferences(BackupService.this));
-                    String clientName = config.getClientName();
-                    log.debug("Running backup with client name {} on server {}:{}",
-                            clientName, config.getServerName(), config.getServerPort());
-                    char[] password = config.getPassword().toCharArray();
-
-                    Storage storage = RemoteStorage.create(config.getServerName(),
-                            config.getServerPort(), password);
-                    storage = EncryptedStorages.getEncryptedStorage(storage, password, false);
-                    Filesystem filesystem = new Filesystem();
-                    ClientActivities backup = new ClientActivities(clientName,
-                            filesystem, storage, config.getServerName(), 120);
-                    backup.setMaxNumberOfChunksToStore(100);
-
-                    Source source = backup.selectSource(false);
-
-                    if (source == null) {
-                        String sourceName = clientName + "-externalStorage";
-                        String path = Environment.getExternalStorageDirectory().getAbsolutePath();
-                        storage.addSource(clientName, sourceName, path);
-                        storage.setSourceSyncAttributes(clientName, sourceName, true, true);
-                        storage.setSourceIgnoredPatterns(clientName, sourceName, "/Android;.thumbnails");
-                        log.info("Created source {} with path {} and synchronization active",
-                                sourceName, path);
-                    } else {
-                        count += backup.sendFiles(source);
-
-                        if (source.isSyncTarget()) {
-                            String[] filePaths = Stream.of(backup.syncDeletions(source, false),
-                                    backup.syncAdditions(source, false))
-                                    .flatMap(List::stream)
-                                    .map(f -> f.getPath(source.getRootPath()).toString())
-                                    .distinct()
-                                    .toArray(String[]::new);
-                            count += filePaths.length;
-
-                            // does not work for deletions
-                            if (filePaths.length > 0) {
-                                MediaScannerConnection.scanFile(BackupService.this.getApplicationContext(),
-                                        filePaths, null, null);
-                            }
-                        }
-
-                        count += backup.sendHashes(FileStatus.CURRENT);
-                        count += backup.uploadChunks(FileStatus.CURRENT);
-
-                        long today = System.currentTimeMillis() / DAY;
-                        long lastDay = config.getLastTrashCollectionDay();
-
-                        if (today > lastDay) {
-                            backup.collectTrash(source);
-                            config.setLastTrashCollectionDay(today);
-                            log.info("Files older than 3 days have been removed from trash");
-                        }
-                    }
-                } catch (Throwable t) {
-                    log.error(null, t);
-                    count = -1;
-                } finally {
-                    jobFinished(jobParameters, false);
-                }
-
+        log.info("Backup job started");
+        executingThread = new Thread(() -> {
+            try {
+                int count = syncBackup();
                 log.debug("Backup completed with result " + count);
-                return count;
+            } catch (Throwable t) {
+                log.error(null, t);
+            } finally {
+                jobFinished(jobParameters, false);
             }
-        }.execute();
+        });
 
+        executingThread.start();
         return true;
     }
 
     @Override
     public boolean onStopJob(JobParameters jobParameters) {
         log.info("Backup job stopped");
+        executingThread.interrupt();
+        executingThread = null;
         return true;
+    }
+
+    private int syncBackup() {
+        int count = 0;
+
+        ConfigBean config = new ConfigBean(PreferenceManager
+                .getDefaultSharedPreferences(BackupService.this));
+        String clientName = config.getClientName();
+        log.debug("Running backup with client name {} on server {}:{}",
+                clientName, config.getServerName(), config.getServerPort());
+        char[] password = config.getPassword().toCharArray();
+
+        Storage storage = RemoteStorage.create(config.getServerName(),
+                config.getServerPort(), password);
+        storage = EncryptedStorages.getEncryptedStorage(storage, password, false);
+        Filesystem filesystem = new Filesystem();
+        ClientActivities backup = new ClientActivities(clientName,
+                filesystem, storage, config.getServerName(), 120);
+        backup.setMaxNumberOfChunksToStore(100);
+
+        Source source = backup.selectSource(false);
+
+        if (source == null) {
+            String sourceName = clientName + "-externalStorage";
+            String path = Environment.getExternalStorageDirectory().getAbsolutePath();
+            storage.addSource(clientName, sourceName, path);
+            storage.setSourceSyncAttributes(clientName, sourceName, true, true);
+            storage.setSourceIgnoredPatterns(clientName, sourceName, "/Android;.thumbnails");
+            log.info("Created source {} with path {} and synchronization active",
+                    sourceName, path);
+        } else {
+            count += backup.sendFiles(source);
+
+            if (source.isSyncTarget()) {
+                String[] filePaths = Stream.of(backup.syncDeletions(source, false),
+                        backup.syncAdditions(source, false))
+                        .flatMap(List::stream)
+                        .map(f -> f.getPath(source.getRootPath()).toString())
+                        .distinct()
+                        .toArray(String[]::new);
+                count += filePaths.length;
+
+                // does not work for deletions
+                if (filePaths.length > 0) {
+                    MediaScannerConnection.scanFile(BackupService.this.getApplicationContext(),
+                            filePaths, null, null);
+                }
+            }
+
+            count += backup.sendHashes(FileStatus.CURRENT);
+            count += backup.uploadChunks(FileStatus.CURRENT);
+
+            long today = System.currentTimeMillis() / DAY;
+            long lastDay = config.getLastTrashCollectionDay();
+
+            if (today > lastDay) {
+                backup.collectTrash(source);
+                config.setLastTrashCollectionDay(today);
+                log.info("Files older than 3 days have been removed from trash");
+            }
+        }
+
+        return count;
     }
 }

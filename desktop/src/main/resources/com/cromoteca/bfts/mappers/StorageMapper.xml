@@ -191,6 +191,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     where client = #{clientName}
   </select>
 
+  <select id="getClientsLastUpdated" resultType="hashmap">
+    select client, coalesce(max(lastUpdated), 0) as lastUpdated
+    from sources
+    group by client
+  </select>
+
   <select id="countCurrentFilesBySource" resultType="int">
     select count(*) as cnt
     from files

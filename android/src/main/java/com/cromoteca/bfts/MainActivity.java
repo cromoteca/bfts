@@ -40,6 +40,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.Map;
 
 public class MainActivity extends Activity {
     private static final int STORAGE_WRITE_PERMISSION_REQUEST = 1;
@@ -95,6 +96,14 @@ public class MainActivity extends Activity {
                                     + "Files without hash: %d\nMissing file chunks: %d\n",
                             time, stats.getFiles(), stats.getFilesWithoutHash(),
                             stats.getMissingChunks());
+
+                    Map<String, Long> lastUpdated = storage.getClientsLastUpdated();
+
+                    for (String client : lastUpdated.keySet()) {
+                        long num = lastUpdated.get(client);
+                        String upd = num == 0 ? "never" : dateFormat.format(new Date(num));
+                        status = String.format(Locale.UK, "%s\n%s: %s", status, client, upd);
+                    }
                 } catch (Throwable t) {
                     log.error(null, t);
                     status = "Backup server is unreachable at the moment";

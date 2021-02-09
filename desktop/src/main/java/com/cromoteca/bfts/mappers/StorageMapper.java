@@ -23,6 +23,8 @@ import com.cromoteca.bfts.model.Source;
 import com.cromoteca.bfts.model.StorageConfiguration;
 import com.cromoteca.bfts.util.Container;
 import java.util.List;
+import java.util.Map;
+
 import org.apache.ibatis.annotations.Param;
 
 /**
@@ -146,6 +148,8 @@ public interface StorageMapper {
   long getSourceLastUpdated(@Param("sourceId") int sourceId);
 
   long getClientLastUpdated(@Param("clientName") String clientName);
+
+  List<Map<String, Object>> getClientsLastUpdated();
 
   /**
    * Counts items that are included in the current backup view, divided by file
