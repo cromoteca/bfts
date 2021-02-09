@@ -130,7 +130,7 @@ public class Util {
       try {
         returnValue = m.invoke(object, a);
       } catch (InvocationTargetException ex) {
-        log.trace("{} threw execption {}", message, ex.getMessage());
+        log.trace("{} threw exception {}", message, ex.getMessage());
         throw ex;
       }
 

@@ -51,16 +51,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     </encoder>
   </appender>
 
-  <logger name="com.cromoteca.bfts.client.ClientScheduler" level="debug"/>
-  <logger name="com.cromoteca.bfts.client.ClientActivities" level="debug"/>
-  <logger name="com.cromoteca.bfts.storage.LocalStorage" level="debug"/>
+  <logger name="com.cromoteca.bfts.client.ClientScheduler" level="${logTransferLevel:-debug}"/>
+  <logger name="com.cromoteca.bfts.client.ClientActivities" level="${logTransferLevel:-debug}"/>
+  <logger name="com.cromoteca.bfts.storage.LocalStorage" level="${logTransferLevel:-debug}"/>
+
   <logger name="ch.qos.logback" level="warn"/>
 
   <logger name="sync" level="info" additivity="false">
     <appender-ref ref="SYNC"/>
   </logger>
 
-  <root level="info">
+  <root level="${logRootLevel:-info}">
     <appender-ref ref="STDOUT"/>
     <appender-ref ref="FILE"/>
   </root>
