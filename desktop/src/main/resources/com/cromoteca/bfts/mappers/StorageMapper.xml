@@ -337,7 +337,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
         #{item}
       </foreach>
     </if>
-    order by f.id
+    order by f.id desc
     limit #{limit}
   </select>
 
