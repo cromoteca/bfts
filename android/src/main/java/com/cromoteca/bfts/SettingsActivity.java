@@ -98,12 +98,6 @@ public class SettingsActivity extends PreferenceActivity {
                 .commit();
     }
 
-    @Override
-    protected void onPause() {
-        super.onPause();
-        BackupService.scheduleJob(this);
-    }
-
     /**
      * Set up the {@link android.app.ActionBar}, if the API is available.
      */

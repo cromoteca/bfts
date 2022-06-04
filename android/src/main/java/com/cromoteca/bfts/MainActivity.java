@@ -19,14 +19,19 @@ package com.cromoteca.bfts;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.preference.PreferenceManager;
-import androidx.annotation.NonNull;
 import android.widget.Button;
 import android.widget.TextView;
+
+import androidx.annotation.NonNull;
 
 import com.cromoteca.bfts.model.Stats;
 import com.cromoteca.bfts.storage.EncryptedStorages;
@@ -46,6 +51,25 @@ public class MainActivity extends Activity {
     private static final int STORAGE_WRITE_PERMISSION_REQUEST = 1;
     Logger log = LoggerFactory.getLogger(MainActivity.class);
 
+    private ForegroundBackupService backupService;
+
+    private final ServiceConnection mConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+            log.debug("Connecting to service");
+            backupService = ((ForegroundBackupService.LocalBinder) iBinder).getInstance();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName componentName) {
+            log.debug("Disconnecting from service");
+            if (backupService != null) {
+                backupService.unbindService(this);
+                backupService = null;
+            }
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -58,13 +82,49 @@ public class MainActivity extends Activity {
                     STORAGE_WRITE_PERMISSION_REQUEST);
         }
 
-        BackupService.scheduleJob(this);
-
         Button settingsButton = findViewById(R.id.settingsButton);
         settingsButton.setOnClickListener(e -> {
             Intent intent = new Intent(this, SettingsActivity.class);
             startActivity(intent);
         });
+
+        Button startButton = findViewById(R.id.startButton);
+        startButton.setOnClickListener(e -> {
+            log.debug("Starting foreground service");
+            Intent serviceIntent = new Intent(this, ForegroundBackupService.class);
+            startForegroundService(serviceIntent);
+            bindService(serviceIntent, mConnection, Context.BIND_AUTO_CREATE);
+            log.debug("Foreground service started");
+        });
+
+        Button stopButton = findViewById(R.id.stopButton);
+        stopButton.setOnClickListener(e -> {
+            log.debug("Stopping foreground service");
+            Intent serviceIntent = new Intent(this, ForegroundBackupService.class);
+            stopService(serviceIntent);
+            log.debug("Foreground service stopped");
+
+            if (backupService != null) {
+                log.debug("Stopping backup scheduler");
+                backupService.stopScheduler();
+                unbindService(mConnection);
+                backupService = null;
+            }
+        });
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        Intent serviceIntent = new Intent(this, ForegroundBackupService.class);
+        bindService(serviceIntent, mConnection, 0);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        unbindService(mConnection);
+        backupService = null;
     }
 
     @SuppressLint("StaticFieldLeak")
