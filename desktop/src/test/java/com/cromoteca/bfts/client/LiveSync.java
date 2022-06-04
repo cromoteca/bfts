@@ -91,7 +91,7 @@ public class LiveSync {
           c.storage.setSourceIgnoredPatterns(c.name, sourceName, c.ignore);
         }
 
-        ClientScheduler cs = new ClientScheduler(ca, 500);
+        ClientScheduler cs = new ClientScheduler(ca, 500, 5000);
         cs.start();
         cs.setFast(true);
         return cs;

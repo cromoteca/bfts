@@ -38,7 +38,6 @@ public class ClientScheduler {
    * thread
    */
   private static final long MIN_PAUSE = 100;
-  private static final int MAX_PAUSE_FACTOR = 30;
   private final ClientActivities activity;
   /**
    * Used to stop thread when false
@@ -50,15 +49,18 @@ public class ClientScheduler {
   private long chunkDelay;
   private long realtimeDelay;
   private final int filesystemScanMinPause;
+  private final int filesystemScanMaxPause;
   private Thread fileThread;
   private Thread hashThread;
   private Thread chunkThread;
   private Thread realtimeThread;
   private int fastCounter;
 
-  public ClientScheduler(ClientActivities activity, int filesystemScanMinPause) {
+  public ClientScheduler(ClientActivities activity, int filesystemScanMinPause,
+      int filesystemScanMaxPause) {
     this.activity = activity;
     this.filesystemScanMinPause = filesystemScanMinPause;
+    this.filesystemScanMaxPause = filesystemScanMaxPause;
     hashDelay = chunkDelay = fileDelay = realtimeDelay = filesystemScanMinPause;
   }
 
@@ -146,7 +148,7 @@ public class ClientScheduler {
       // make sure that the pause is longer than minimum and shorter than a
       // reasonable maximum
       fileDelay = Util.constrain(nextDelay, filesystemScanMinPause,
-          filesystemScanMinPause * MAX_PAUSE_FACTOR);
+          filesystemScanMaxPause);
       // if executing fast, subtract the operation duration
       long actualPause = fast ? Math.max(MIN_PAUSE,
           fileDelay - duration.getMilliseconds()) : fileDelay;

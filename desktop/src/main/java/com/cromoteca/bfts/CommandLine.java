@@ -411,7 +411,7 @@ public class CommandLine {
               filesystem, storage, n, CONFIG.getLongOperationDuration());
 
           // one scheduler for each backup destination
-          ClientScheduler cs = new ClientScheduler(ca, 5000);
+          ClientScheduler cs = new ClientScheduler(ca, 5000, 150000);
           FACTORY.registerSingleton(ClientScheduler.class, n, cs);
           cs.start();
           System.out.format("Client scheduler started for %s\n", n);
