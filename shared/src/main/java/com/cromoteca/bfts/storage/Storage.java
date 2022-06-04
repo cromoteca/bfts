@@ -212,7 +212,5 @@ public interface Storage {
 
   void addFilesInRealtime(List<File> files);
 
-  void purgeChunks();
-
   Pair<Integer,Long> deleteUnusedChunkFiles();
 }

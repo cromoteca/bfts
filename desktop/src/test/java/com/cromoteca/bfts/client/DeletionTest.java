@@ -100,7 +100,6 @@ public class DeletionTest {
 
     FilePath chunksPath = localStorage.getChunksDir();
     long before = chunksPath.walk().count();
-    storage.purgeChunks();
     storage.deleteUnusedChunkFiles();
     long after = chunksPath.walk().count();
     assertEquals(8, before - after);

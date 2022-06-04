@@ -754,16 +754,12 @@ public class LocalStorage implements Storage, AutoCloseable {
   }
 
   @Override
-  public void purgeChunks() {
-    run(mapper -> {
-      mapper.purgeChunks();
-      return null;
-    });
-  }
-
-  @Override
   public Pair<Integer, Long> deleteUnusedChunkFiles() {
     return run(mapper -> {
+      // delete useless chunks from database
+      mapper.purgeChunks();
+
+      // from now on, delete useless chunks from disk
       FilePath chunksPath = getChunksDir();
       Counter reclaimedSpace = new Counter();
       int total = 0;
