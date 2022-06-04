@@ -84,6 +84,8 @@ public class ClientScheduler {
   }
 
   public void start() {
+    log.debug("Starting backup scheduler for client {}", activity.getClient());
+
     fileThread = new Thread(this::fileRunnable);
     fileThread.setName(activity.getClient() + "-files");
     fileThread.start();
@@ -249,6 +251,7 @@ public class ClientScheduler {
 
   public void stop() {
     running = false;
+    log.debug("Stopping backup scheduler for client {}", activity.getClient());
 
     Stream<Thread> threads
         = Stream.of(fileThread, hashThread, chunkThread, realtimeThread);
@@ -257,6 +260,7 @@ public class ClientScheduler {
     threads.parallel().filter(Objects::nonNull).forEach(t -> {
       try {
         t.join();
+        log.debug("Thread {} joined", t.getName());
       } catch (InterruptedException ex) {
         log.warn(null, ex);
         Thread.currentThread().interrupt();
