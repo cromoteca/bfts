@@ -309,7 +309,7 @@ public class CommandLine {
         .collect(Collectors.joining("\n"));
   }
 
-  @Command(description = "Make a complete backup of a source")
+  @Command(description = "Make a complete backup of all sources")
   public void complete(@Param(name = "Storage name") String storageName) {
     Storage storage = getStorage(storageName);
     Filesystem fs = new Filesystem();

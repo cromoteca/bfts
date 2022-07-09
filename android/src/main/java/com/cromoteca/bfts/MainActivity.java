@@ -28,10 +28,9 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
+import android.support.annotation.NonNull;
 import android.widget.Button;
 import android.widget.TextView;
-
-import androidx.annotation.NonNull;
 
 import com.cromoteca.bfts.model.Stats;
 import com.cromoteca.bfts.storage.EncryptedStorages;

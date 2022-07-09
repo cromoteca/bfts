@@ -1,5 +1,27 @@
 apply plugin: 'com.android.application'
 
+buildscript {
+    repositories {
+        google()
+        jcenter()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:7.2.1'
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        jcenter()
+        maven {
+            url 'https://maven.repository.redhat.com/ga/'
+        }
+        mavenLocal()
+    }
+}
+
 android {
     compileSdkVersion 28
     defaultConfig {
@@ -8,7 +30,6 @@ android {
         targetSdkVersion 28
         versionCode 1
         versionName "1.0"
-        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     buildTypes {
         release {
@@ -23,29 +44,19 @@ android {
     buildFeatures{
         dataBinding = true
     }
-    buildToolsVersion '28.0.3'
 }
 
 dependencies {
-    api(project(":shared")) {
-        transitive = false
-    }
-
     implementation fileTree(include: ['*.jar'], dir: 'libs')
-    implementation 'androidx.constraintlayout:constraintlayout:2.0.4'
-    implementation 'androidx.legacy:legacy-support-v4:1.0.0'
-    implementation 'androidx.annotation:annotation:1.1.0'
+
+    implementation ('com.cromoteca:bfts-shared:1.0-SNAPSHOT') {
+        exclude group: 'ch.qos.logback'
+    }
 
     testImplementation 'junit:junit:4.12'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.2'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
 
-    implementation 'org.slf4j:slf4j-api:1.7.29'
-    implementation 'com.github.tony19:logback-android-core:1.1.1-6'
-    implementation('com.github.tony19:logback-android-classic:1.1.1-6') {
-        // workaround issue #73
-        exclude group: 'com.google.android', module: 'android'
-    }
+    implementation 'org.slf4j:slf4j-api:1.7.30'
+    implementation 'com.github.tony19:logback-android:2.0.0'
 
     implementation 'com.fasterxml.jackson.core:jackson-core:2.10.1'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.10.1'
