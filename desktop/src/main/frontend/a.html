@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Custom SWT Browser Page</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        h1 { color: #2c3e50; }
+        p { color: #34495e; }
+        button { margin-top: 1em; padding: 0.5em 1em; font-size: 1em; }
+        #dir-result { margin-top: 1em; color: #2980b9; font-weight: bold; }
+    </style>
+    <script type="text/javascript">
+        function openDirectoryPicker() {
+            if (window.java && typeof window.java.openDirectoryPicker === 'function') {
+                window.java.openDirectoryPicker();
+            } else {
+                alert('Java interop not available.');
+            }
+        }
+        function showPickedDirectory(path) {
+            console.log('Picked directory:', path);
+            document.getElementById('dir-result').textContent = path ?
+                'Picked directory: ' + path : 'No directory selected';
+        }
+    </script>
+</head>
+<body>
+    <h1>Welcome to the SWT Embedded Browser!</h1>
+    <p>This is a custom HTML page loaded from the application's resources.</p>
+    <p>You can modify this file to display any content you like.</p>
+    <button onclick="openDirectoryPicker()">Open Directory Picker</button>
+    <div id="dir-result"></div>
+</body>
+</html>
