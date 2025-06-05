@@ -11,9 +11,11 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
 
 import com.cromoteca.bfts.client.Configuration;
-import com.cromoteca.bfts.model.Pair;
+import com.cromoteca.bfts.storage.EncryptionType;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class CommandLineSWT {
 
@@ -66,12 +68,32 @@ public class CommandLineSWT {
         new BrowserFunction(browser, "list") {
             @Override
             public Object function(Object[] arguments) {
-                Pair<String[], String[]> pair = new Pair<>(
-                        CONFIG.getLocalStorages(),
-                        CONFIG.getConnectedStorages()
-                );
                 try {
-                    return new ObjectMapper().writeValueAsString(pair);
+                    ObjectMapper mapper = new ObjectMapper();
+
+                    ArrayNode locals = mapper.createArrayNode();
+                    for (String name : CONFIG.getLocalStorages()) {
+                        ObjectNode node = mapper.createObjectNode();
+                        node.put("name", name);
+                        node.put("port", CONFIG.getLocalStoragePort(name));
+                        locals.add(node);
+                    }
+
+                    ArrayNode connected = mapper.createArrayNode();
+                    for (String name : CONFIG.getConnectedStorages()) {
+                        ObjectNode node = mapper.createObjectNode();
+                        node.put("name", name);
+                        node.put("path", CONFIG.getConnectedStoragePath(name));
+                        EncryptionType encType = CONFIG.getConnectedStorageEncryptionType(name);
+                        node.put("encryption", encType.toString().toLowerCase());
+                        connected.add(node);
+                    }
+
+                    ObjectNode result = mapper.createObjectNode();
+                    result.set("localStorages", locals);
+                    result.set("connectedStorages", connected);
+
+                    return mapper.writeValueAsString(result);
                 } catch (JsonProcessingException ex) {
                     System.err.println("Error serializing storage list: " + ex.getMessage());
                     return null;
