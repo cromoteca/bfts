@@ -18,6 +18,15 @@ function App() {
   window.showPickedDirectory = (path) => {
     window.logToJava(`Picked directory: ${path}`);
     setPickedDir(path ? `Picked directory: ${path}` : "No directory selected");
+    // If a directory was picked, list its contents and log them
+    if (path && typeof window.list === 'function') {
+      try {
+        const result = window.list(path);
+        window.logToJava(`Contents of ${path}: ${result}`);
+      } catch (e) {
+        window.logToJava('Error: ' + e);
+      }
+    }
   };
 
   return (
