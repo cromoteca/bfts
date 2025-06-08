@@ -132,7 +132,7 @@ public class GUI {
       }
     };
 
-    shell.setSize(600, 400);
+    shell.setSize(1024, 768);
   }
 
   public void open() {

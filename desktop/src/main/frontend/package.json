@@ -2,7 +2,7 @@
   "name": "bfts-ui",
   "type": "module",
   "scripts": {
-    "build": "esbuild index.jsx --bundle --outfile=../resources/ui/js/index.js --format=iife --loader:.jsx=jsx"
+    "build": "esbuild index.jsx --bundle --outdir=../resources/ui/js --format=iife --loader:.jsx=jsx --loader:.css=css"
   },
   "dependencies": {
     "react": "^19.0.0",

@@ -1,0 +1,103 @@
+/* THEME COLORS */
+:root {
+  --bfts-primary: #234e5d;
+  --bfts-accent: #fdca00;
+  --bfts-bg: #fff;
+  --bfts-text: #111;
+  --bfts-header-line: #234e5d;
+  --bfts-row-line: #e2e8f0;
+  --bfts-font: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+}
+
+html, body {
+  font-family: var(--bfts-font);
+  font-size: 17px;
+  color: var(--bfts-text);
+  background: var(--bfts-bg);
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  margin: 0;
+  padding: 2.5rem 2.5vw 2.5rem 2.5vw;
+}
+
+/* Modern table styles for BFTS UI */
+.table-container {
+  margin: 2.5rem 0 3.5rem 0;
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--bfts-bg);
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  font-size: 1rem;
+  color: var(--bfts-text);
+  margin-bottom: 0;
+  font-family: var(--bfts-font);
+}
+th, td {
+  padding: 1.1rem 1.3rem;
+  text-align: left;
+  font-size: 1.05rem;
+}
+th {
+  background: #f5f7fa;
+  font-weight: 800;
+  border-bottom: 3px solid var(--bfts-header-line);
+  color: var(--bfts-primary);
+  font-size: 1.12rem;
+  letter-spacing: 0.02em;
+}
+td {
+  border-bottom: 1.5px solid var(--bfts-row-line);
+  font-weight: 400;
+  color: #222;
+}
+tr:last-child td {
+  border-bottom: none;
+}
+tr:hover {
+  background: #f0f4fa;
+}
+caption {
+  caption-side: top;
+  font-size: 1.35rem;
+  font-weight: 900;
+  margin-bottom: 1.3rem;
+  color: var(--bfts-primary);
+  letter-spacing: 0.04em;
+  text-align: left;
+  padding-left: 0.1rem;
+  font-family: var(--bfts-font);
+}
+
+/* THEMED BUTTON */
+.bfts-btn {
+  background: var(--bfts-primary);
+  color: var(--bfts-accent);
+  border: none;
+  border-radius: 0.3rem;
+  padding: 0.5rem 1.2rem;
+  font-size: 1.08rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  font-family: var(--bfts-font);
+  box-shadow: 0 1px 4px rgba(35,78,93,0.08);
+  letter-spacing: 0.02em;
+}
+.bfts-btn:hover, .bfts-btn:focus {
+  background: var(--bfts-accent);
+  color: var(--bfts-primary);
+  outline: none;
+  box-shadow: 0 2px 8px rgba(253,202,0,0.13);
+}
+
+/* IMPROVED SPACING BETWEEN TABLES */
+.table-container + .table-container {
+  margin-top: 3.5rem;
+}
