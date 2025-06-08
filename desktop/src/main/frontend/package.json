@@ -2,10 +2,11 @@
   "name": "bfts-ui",
   "type": "module",
   "scripts": {
-    "build": "esbuild index.jsx --bundle --outfile=../resources/ui/js/index.js --format=iife --jsx-factory=h --jsx-fragment=Fragment --loader:.jsx=jsx"
+    "build": "esbuild index.jsx --bundle --outfile=../resources/ui/js/index.js --format=iife --loader:.jsx=jsx"
   },
   "dependencies": {
-    "preact": "^10.19.2"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "esbuild": "^0.20.0"
