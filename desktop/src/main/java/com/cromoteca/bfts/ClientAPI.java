@@ -16,10 +16,6 @@
  */
 package com.cromoteca.bfts;
 
-import asg.cliche.Command;
-import asg.cliche.Param;
-import asg.cliche.Shell;
-
 import com.cromoteca.bfts.client.ClientActivities;
 import com.cromoteca.bfts.client.ClientScheduler;
 import com.cromoteca.bfts.client.Configuration;
@@ -88,32 +84,37 @@ public class ClientAPI {
   private static final String FTP_URL = "ftp://localhost:3715/";
   private static final Pattern HOST_PORT = Pattern.compile("(.+):(\\d+)");
   private static final Factory FACTORY = new Factory();
-  private static Shell shell;
   private static final Configuration CONFIG
       = new Configuration(Preferences.userNodeForPackage(ClientAPI.class));
   private static final ObjectMapper mapper = new ObjectMapper();
   private char[] password;
 
-  @Command(description
-      = "Quits the program (don't use EXIT as is causes thread locks")
+  /**
+   * Quits the program.
+   */
   public void quit() {
     System.exit(0);
   }
 
-  @Command(description = "Cancels the whole configuration")
+  /**
+   * Cancels the whole configuration.
+   */
   public void clearConfiguration() {
     CONFIG.remove();
     System.out.println("Configuration cleared, exiting");
     quit();
   }
 
-  @Command(description = "Sets the name of this client")
-  public void name(@Param(name = "Client name") String name) {
+  /**
+   * Sets the name of this client.
+   *
+   * @param name Client name
+   */
+  public void name(String name) {
     if (!Util.validName(name)) {
       System.err.println("Name is not valid");
     } else {
       CONFIG.setClientName(name);
-      shell.setPath(Arrays.asList(new String[] { name }));
     }
   }
 
@@ -138,42 +139,54 @@ public class ClientAPI {
   }
 
   /**
+   * Prompts for password and keeps it in memory instead of asking for it every time.
    * Note: a stored password will be used for both storage encryption and HTTP
    * encryption. This is usually fine, since most users don't want to remember
    * multiple passwords, but it is good to remember that every backup can have
    * its own password and that the HTTP one is independent too.
    */
-  @Command(description = "Prompts for password and keeps it in memory instead"
-      + " of asking for it every time")
   public void password() {
     password = askPassword();
   }
 
-  @Command(description = "Keeps in memory a password passed as parameter,"
-      + " useful when console is not available")
-  public void password(@Param(name = "Password") String password) {
+  /**
+   * Keeps in memory a password passed as parameter, useful when console is not available.
+   *
+   * @param password Password
+   */
+  public void password(String password) {
     this.password = password.toCharArray();
   }
 
-  @Command(description = "Forgets current password")
+  /**
+   * Forgets current password.
+   */
   public void noPassword() {
     password = null;
   }
 
-  @Command(description = "Initializes a new local storage")
-  public void init(@Param(name = "Storage name") String name,
-      @Param(name = "Storage path") String path,
-      @Param(name = "In memory database") boolean inMemory) {
+  /**
+   * Initializes a new local storage.
+   *
+   * @param name Storage name
+   * @param path Storage path
+   * @param inMemory In memory database
+   */
+  public void init(String name, String path, boolean inMemory) {
     StorageConfiguration storageConfig = new StorageConfiguration();
     LocalStorage.init(FilePath.get(path), inMemory, storageConfig);
     CONFIG.setLocalStoragePath(name, path);
-    System.out.format("Local storage %s initialized in directory %s\n", name,
-        path);
+    System.out.format("Local storage %s initialized in directory %s\n", name, path);
   }
 
-  @Command(abbrev = "pub", description = "Publishes a local storage over HTTP")
-  public void publish(@Param(name = "Storage name") String name,
-      @Param(name = "HTTP port") int port) throws GeneralSecurityException {
+  /**
+   * Publishes a local storage over HTTP.
+   *
+   * @param name Storage name
+   * @param port HTTP port
+   * @throws GeneralSecurityException If a security exception occurs
+   */
+  public void publish(String name, int port) throws GeneralSecurityException {
     String path = CONFIG.getLocalStoragePath(name);
     LocalStorage storage = LocalStorage.get(FilePath.get(path));
     StorageConfiguration storageConfig = storage.getStorageConfiguration();
@@ -186,22 +199,29 @@ public class ClientAPI {
     System.out.format("Storage %s published on port %d\n", name, port);
   }
 
-  @Command(description = "Connects to a storage")
-  public void connect(@Param(name = "Connection name") String name,
-      @Param(name = "Storage path",
-          description = "Local dir or host:port") String path,
-      @Param(name = "Encryption (none, data, full)") String encryption) {
+  /**
+   * Connects to a storage.
+   *
+   * @param name Connection name
+   * @param path Storage path (Local dir or host:port)
+   * @param encryption Encryption (none, data, full)
+   */
+  public void connect(String name, String path, String encryption) {
     EncryptionType encryptionType = EncryptionType.fromString(encryption);
     CONFIG.setConnectedStoragePath(name, path);
     CONFIG.setConnectedStorageEncryptionType(name, encryptionType);
-    System.out.format("Prepared connection to storage %s as %s\n", name,
-        CONFIG.getClientName());
+    System.out.format("Prepared connection to storage %s as %s\n", name, CONFIG.getClientName());
   }
 
-  @Command(description = "Adds a backup source to a storage")
-  public void add(@Param(name = "Connection name") String storageName,
-      @Param(name = "Source name") String name,
-      @Param(name = "Source path") String path) throws IOException {
+  /**
+   * Adds a backup source to a storage.
+   *
+   * @param storageName Connection name
+   * @param name Source name
+   * @param path Source path
+   * @throws IOException If an I/O error occurs
+   */
+  public void add(String storageName, String name, String path) throws IOException {
     if (!Util.validName(name)) {
       System.err.println("Source name is not valid");
     } else {
@@ -217,16 +237,24 @@ public class ClientAPI {
     }
   }
 
-  @Command(description = "Change source priority")
-  public void priority(@Param(name = "Connection name") String storageName,
-      @Param(name = "Source name") String name,
-      @Param(name = "Priority") int priority) {
+  /**
+   * Change source priority.
+   *
+   * @param storageName Connection name
+   * @param name Source name
+   * @param priority Priority
+   */
+  public void priority(String storageName, String name, int priority) {
     Storage storage = getStorage(storageName);
     storage.setSourcePriority(CONFIG.getClientName(), name, priority);
     System.out.format("Priority for %s set to %d\n", name, priority);
   }
 
-  @Command(description = "Lists local and connected storages")
+  /**
+   * Lists local and connected storages.
+   *
+   * @return A JSON object containing the list of local and connected storages
+   */
   public ObjectNode list() {
     ArrayNode locals = mapper.createArrayNode();
 
@@ -256,8 +284,13 @@ public class ClientAPI {
     return result;
   }
 
-  @Command(description = "Lists sources backed up on a storage")
-  public String list(@Param(name = "Connection name") String name) {
+  /**
+   * Lists sources backed up on a storage.
+   *
+   * @param name Connection name
+   * @return A string containing the list of sources
+   */
+  public String list(String name) {
     Storage storage = getStorage(name);
     List<Source> sources = storage.selectSources(CONFIG.getClientName());
     return sources.stream()
@@ -266,8 +299,12 @@ public class ClientAPI {
         .collect(Collectors.joining("\n"));
   }
 
-  @Command(description = "Make a complete backup of all sources")
-  public void complete(@Param(name = "Storage name") String storageName) {
+  /**
+   * Make a complete backup of all sources.
+   *
+   * @param storageName Storage name
+   */
+  public void complete(String storageName) {
     Storage storage = getStorage(storageName);
     Filesystem fs = new Filesystem();
     fs.setFilesystemScanSize(Integer.MAX_VALUE);
@@ -279,9 +316,13 @@ public class ClientAPI {
     }
   }
 
-  @Command(description = "Make a complete backup of a source")
-  public void complete(@Param(name = "Storage name") String storageName,
-      @Param(name = "Source name") String sourceName) {
+  /**
+   * Make a complete backup of a source.
+   *
+   * @param storageName Storage name
+   * @param sourceName Source name
+   */
+  public void complete(String storageName, String sourceName) {
     Storage storage = getStorage(storageName);
     Filesystem fs = new Filesystem();
     fs.setFilesystemScanSize(Integer.MAX_VALUE);
@@ -294,26 +335,29 @@ public class ClientAPI {
     Source source = ca.selectSource(false, sourceName);
 
     if (source == null) {
-      System.out.format("Source %s is not available at the moment\n",
-          sourceName);
+        System.out.format("Source %s is not available at the moment\n", sourceName);
     } else {
       ca.sendFiles(source);
-      for (int n = 1; n > 0; n = ca.syncDeletions(source, true).size());
-      for (int n = 1; n > 0; n = ca.syncAdditions(source, true).size());
-      for (int n = 1; n > 0; n = ca.sendHashes(FileStatus.CURRENT,
-          source.getId()));
-      for (int n = 1; n > 0; n = ca.uploadChunks(FileStatus.CURRENT,
-          source.getId()));
+      while (!ca.syncDeletions(source, true).isEmpty()) {}
+      while (!ca.syncAdditions(source, true).isEmpty()) {}
+      while (ca.sendHashes(FileStatus.CURRENT, source.getId()) > 0) {}
+      while (ca.uploadChunks(FileStatus.CURRENT, source.getId()) > 0) {}
     }
   }
 
-  @Command(abbrev = "start", description = "Starts all backups")
+  /**
+   * Starts all backups.
+   */
   public void start() {
     start(null);
   }
 
-  @Command(abbrev = "start", description = "Starts a backup")
-  public void start(@Param(name = "Storage name") String name) {
+  /**
+   * Starts a backup.
+   *
+   * @param name Storage name
+   */
+  public void start(String name) {
     // start all HTTP servers, for use by remote clients
     Stream<String> stream = Arrays.stream(CONFIG.getLocalStorages());
 
@@ -379,13 +423,19 @@ public class ClientAPI {
     });
   }
 
-  @Command(abbrev = "stop", description = "Stops all backups")
+  /**
+   * Stops all backups.
+   */
   public void stop() {
     stop(null);
   }
 
-  @Command(abbrev = "stop", description = "Stops a backup")
-  public void stop(@Param(name = "Storage name") String name) {
+  /**
+   * Stops a backup.
+   *
+   * @param name Storage name
+   */
+  public void stop(String name) {
     System.out.print("Stopping running backup... ");
 
     Stream<String> stream = Arrays.stream(CONFIG.getConnectedStorages());
@@ -441,14 +491,24 @@ public class ClientAPI {
     System.out.println("done");
   }
 
-  @Command(description = "Browse backup")
+  /**
+   * Browse backup.
+   *
+   * @throws FtpException If an FTP error occurs
+   * @throws IOException If an I/O error occurs
+   */
   public void browse() throws FtpException, IOException {
     browse(CONFIG.getClientName());
   }
 
-  @Command(description = "Browse backup")
-  public void browse(@Param(name = "Client name") String clientName)
-      throws FtpException, IOException {
+  /**
+   * Browse backup.
+   *
+   * @param clientName Client name
+   * @throws FtpException If an FTP error occurs
+   * @throws IOException If an I/O error occurs
+   */
+  public void browse(String clientName) throws FtpException, IOException {
     FtpServerFactory serverFactory = new FtpServerFactory();
     ListenerFactory factory = new ListenerFactory();
     factory.setPort(3715);
@@ -477,8 +537,12 @@ public class ClientAPI {
     }
   }
 
-  @Command(description = "Get backup stats")
-  public void stats(@Param(name = "Storage name") String name) {
+  /**
+   * Get backup stats.
+   *
+   * @param name Storage name
+   */
+  public void stats(String name) {
     Storage storage = getStorage(name);
     SortedMap<String, Stats> allStats
         = storage.getDetailedClientStats(CONFIG.getClientName());
@@ -499,18 +563,26 @@ public class ClientAPI {
     }
   }
 
-  @Command(description = "Makes backup faster")
+  /**
+   * Makes backup faster.
+   */
   public void fast() {
     setFast(true);
   }
 
-  @Command(description = "Makes backup slower")
+  /**
+   * Makes backup slower.
+   */
   public void nice() {
     setFast(false);
   }
 
-  @Command(description = "Deletes unreferenced files")
-  public void reclaimSpace(@Param(name = "Storage name") String storageName) {
+  /**
+   * Deletes unreferenced files.
+   *
+   * @param storageName Storage name
+   */
+  public void reclaimSpace(String storageName) {
     Storage storage = getStorage(storageName);
     Pair<Integer, Long> result = storage.deleteUnusedChunkFiles();
     System.out.format("%d files deleted for a total of %d bytes reclaimed\n",
@@ -582,7 +654,7 @@ public class ClientAPI {
     Matcher m = HOST_PORT.matcher(s);
 
     if (m.matches()) {
-      return new Pair<>(m.group(1), Integer.parseInt(m.group(2)));
+      return new Pair<>(m.group(1), Integer.valueOf(m.group(2)));
     } else {
       return null;
     }
