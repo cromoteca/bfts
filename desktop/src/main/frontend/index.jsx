@@ -1,8 +1,9 @@
-import { h, render } from "preact";
-import { useState } from "preact/hooks";
+import React, { useState, useEffect } from "react";
+import { createRoot } from "react-dom/client";
 
 function App() {
   const [pickedDir, setPickedDir] = useState("");
+  const [storages, setStorages] = useState([]);
 
   const openDirectoryPicker = () => {
     window.logToJava("Opening directory picker...");
@@ -15,19 +16,31 @@ function App() {
   };
 
   // Expose a global callback for Java to invoke
-  window.showPickedDirectory = (path) => {
-    window.logToJava(`Picked directory: ${path}`);
-    setPickedDir(path ? `Picked directory: ${path}` : "No directory selected");
-    // If a directory was picked, list its contents and log them
-    if (path && typeof window.list === 'function') {
+  useEffect(() => {
+    window.showPickedDirectory = (path) => {
+      window.logToJava(`Picked directory: ${path}`);
+      setPickedDir(path ? `Picked directory: ${path}` : "No directory selected");
+      // If a directory was picked, list its contents and log them
+      if (path && typeof window.list === 'function') {
+        try {
+          const result = window.list(path);
+          window.logToJava(`Contents of ${path}: ${result}`);
+        } catch (e) {
+          window.logToJava('Error: ' + e);
+        }
+      }
+    };
+
+    // Fetch storages on mount
+    if (typeof window.invoke === 'function') {
+      const result = window.invoke('list');
       try {
-        const result = window.list(path);
-        window.logToJava(`Contents of ${path}: ${result}`);
-      } catch (e) {
-        window.logToJava('Error: ' + e);
+        setStorages(JSON.parse(result));
+      } catch {
+        setStorages([]);
       }
     }
-  };
+  }, []);
 
   return (
     <div style={{ fontFamily: "Arial, sans-serif", margin: "2em" }}>
@@ -57,8 +70,13 @@ function App() {
       >
         {pickedDir}
       </div>
+      <div style={{ marginTop: "2em" }}>
+        <strong>Storages:</strong>
+        <pre>{JSON.stringify(storages, null, 2)}</pre>
+      </div>
     </div>
   );
 }
 
-render(<App />, document.getElementById("root"));
+const root = createRoot(document.getElementById("root"));
+root.render(<App />);
