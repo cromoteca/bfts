@@ -13,6 +13,7 @@
   <packaging>jar</packaging>
 
   <properties>
+    <main.class>com.cromoteca.bfts.GUI</main.class>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
   </properties>
@@ -107,7 +108,7 @@
           <appendAssemblyId>false</appendAssemblyId>
           <archive>
             <manifest>
-              <mainClass>com.cromoteca.bfts.CommandLine</mainClass>
+              <mainClass>${main.class}</mainClass>
             </manifest>
           </archive>
           <descriptorRefs>
@@ -127,8 +128,8 @@
               <goal>install-node-and-npm</goal>
             </goals>
             <configuration>
-              <nodeVersion>v18.17.1</nodeVersion>
-              <npmVersion>9.6.7</npmVersion>
+              <nodeVersion>v22.15.1</nodeVersion>
+              <npmVersion>10.9.2</npmVersion>
             </configuration>
           </execution>
           <execution>
@@ -154,6 +155,40 @@
         <configuration>
           <workingDirectory>src/main/frontend</workingDirectory>
         </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.5.1</version>
+        <configuration>
+          <mainClass>${main.class}</mainClass>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.2.0</version>
+        <executions>
+          <execution>
+            <id>copy-resources</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.build.outputDirectory}/ui</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>src/main/frontend</directory>
+                  <includes>
+                    <include>index.html</include>
+                  </includes>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
