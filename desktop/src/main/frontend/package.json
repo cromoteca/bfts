@@ -2,13 +2,15 @@
   "name": "bfts-ui",
   "type": "module",
   "scripts": {
-    "build": "esbuild index.jsx --bundle --outdir=../resources/ui/js --format=iife --loader:.jsx=jsx --loader:.css=css"
+    "build": "esbuild index.jsx --bundle --outdir=../../../target/classes/ui --format=iife --loader:.jsx=jsx --loader:.css=css",
+    "dev": "mkdir -p dev-dist && cp index.html dev-dist/index.html && esbuild index.jsx --bundle --outdir=dev-dist --format=iife --loader:.jsx=jsx --loader:.css=css --servedir=dev-dist --watch=forever"
   },
   "dependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "@vaadin/react-components": "^24.6.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "esbuild": "^0.20.0"
+    "esbuild": "^0.25.5"
   }
 }

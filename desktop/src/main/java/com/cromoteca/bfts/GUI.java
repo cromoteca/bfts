@@ -18,6 +18,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class GUI {
+  public static void main(String[] args) {
+    GUI app = new GUI();
+    app.open();
+  }
+
   private static final Logger LOGGER = LoggerFactory.getLogger(GUI.class);
 
   private final Display display;
@@ -146,10 +151,5 @@ public class GUI {
 
     display.dispose();
     System.exit(0); // Ensure the program ends when the GUI window closes
-  }
-
-  public static void main(String[] args) {
-    GUI app = new GUI();
-    app.open();
   }
 }
