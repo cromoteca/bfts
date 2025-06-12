@@ -1,23 +1,9 @@
-import { Grid, GridColumn } from "@vaadin/react-components";
+import { AppLayout, DrawerToggle, Grid, GridColumn, Scroller } from "@vaadin/react-components";
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { initializeMockBridge } from "./mock";
 
-// Mock Java bridge for browser development
-if (typeof window.invoke !== "function") {
-  window.invoke = (method, params) => {
-    if (method === "list") {
-      return JSON.stringify({
-        localStorages: [
-          { name: "Mock Local", path: "/tmp/mock", port: 1234 }
-        ],
-        connectedStorages: [
-          { name: "Mock Connected", path: "/mnt/mock", encryption: "none" }
-        ]
-      });
-    }
-    return "{}";
-  };
-}
+initializeMockBridge();
 
 function App() {
   // Redefine console methods to use window.logToJava if it's a function
@@ -48,8 +34,15 @@ function App() {
   }, []);
 
   return (
-    <div>
+    <AppLayout>
+      <DrawerToggle slot="navbar" />
+      <Scroller slot="drawer" className="p-s">
+      </Scroller>
+      <h1 slot="navbar">
+        MyApp
+      </h1>
       <div className="table-container">
+        <h3>Local Storages</h3>
         {storages.localStorages && storages.localStorages.length === 0 && (
           <p>No local storages</p>
         )}
@@ -62,6 +55,7 @@ function App() {
         ))}
       </div>
       <div className="table-container">
+        <h3>Connected Storages</h3>
         {storages.connectedStorages && storages.connectedStorages.length === 0 && (
           <p>No connected storages</p>
         )}
@@ -73,7 +67,7 @@ function App() {
           </Grid>
         ))}
       </div>
-    </div>
+    </AppLayout>
   );
 }
 
