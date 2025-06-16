@@ -3,6 +3,8 @@ import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { initializeMockBridge } from "./mock";
 
+// import '@vaadin/vaadin-lumo-styles/all-imports.js';
+
 initializeMockBridge();
 
 function App() {
@@ -41,32 +43,28 @@ function App() {
       <h1 slot="navbar">
         MyApp
       </h1>
-      <div className="table-container">
-        <h3>Local Storages</h3>
-        {storages.localStorages && storages.localStorages.length === 0 && (
-          <p>No local storages</p>
-        )}
-        {storages.localStorages && storages.localStorages.map((s, i) => (
-          <Grid items={storages.localStorages} allRowsVisible>
-            <GridColumn path="name" />
-            <GridColumn path="path" />
-            <GridColumn path="port" />
-          </Grid>
-        ))}
-      </div>
-      <div className="table-container">
-        <h3>Connected Storages</h3>
-        {storages.connectedStorages && storages.connectedStorages.length === 0 && (
-          <p>No connected storages</p>
-        )}
-        {storages.connectedStorages && storages.connectedStorages.map((s, i) => (
-          <Grid items={storages.connectedStorages} allRowsVisible>
-            <GridColumn path="name" />
-            <GridColumn path="path" />
-            <GridColumn path="encryption" />
-          </Grid>
-        ))}
-      </div>
+      <h3>Local Storages</h3>
+      {storages.localStorages && storages.localStorages.length === 0 && (
+        <p>No local storages</p>
+      )}
+      {storages.localStorages && storages.localStorages.map((s, i) => (
+        <Grid items={storages.localStorages} allRowsVisible>
+          <GridColumn path="name" />
+          <GridColumn path="path" />
+          <GridColumn path="port" />
+        </Grid>
+      ))}
+      <h3>Connected Storages</h3>
+      {storages.connectedStorages && storages.connectedStorages.length === 0 && (
+        <p>No connected storages</p>
+      )}
+      {storages.connectedStorages && storages.connectedStorages.map((s, i) => (
+        <Grid items={storages.connectedStorages} allRowsVisible>
+          <GridColumn path="name" />
+          <GridColumn path="path" />
+          <GridColumn path="encryption" />
+        </Grid>
+      ))}
     </AppLayout>
   );
 }
