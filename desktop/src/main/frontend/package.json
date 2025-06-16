@@ -3,10 +3,11 @@
   "type": "module",
   "scripts": {
     "build": "esbuild index.jsx --bundle --outdir=../../../target/classes/ui --format=iife --loader:.jsx=jsx --loader:.css=css",
-    "dev": "mkdir -p dev-dist && cp index.html dev-dist/index.html && esbuild index.jsx --bundle --outdir=dev-dist --format=iife --loader:.jsx=jsx --loader:.css=css --servedir=dev-dist --watch=forever"
+    "dev": "esbuild index.jsx --bundle --outdir=. --format=iife --loader:.jsx=jsx --loader:.css=css --servedir=. --watch=forever"
   },
   "dependencies": {
-    "@vaadin/react-components": "^24.6.5",
+    "@vaadin/react-components": "^24.8.0",
+    "@vaadin/vaadin-lumo-styles": "^24.8.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
