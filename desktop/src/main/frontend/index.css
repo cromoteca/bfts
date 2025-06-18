@@ -1,0 +1,102 @@
+:root {
+  --color-bfts-primary: #234e5d;
+  --color-bfts-primary-light: #4e7a8c;
+  --color-bfts-primary-xlight: #b3c9d2;
+  --color-bfts-secondary: #fdca00;
+  --color-bfts-secondary-light: #ffe066;
+  --color-bfts-secondary-xlight: #fff7cc;
+  --font-main: 'Segoe UI', 'Roboto', 'Arial', sans-serif;
+  --color-text: #222;
+  --color-text-soft: #444;
+  --color-bg: #f7f9fa;
+  --color-bg-soft: #fafdff;
+}
+
+body {
+  font-family: var(--font-main);
+  background: var(--color-bg-soft);
+  color: var(--color-text-soft);
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+header {
+  background: var(--color-bfts-secondary-light);
+  color: var(--color-bfts-primary-light);
+  padding: 1.2rem 2rem;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  box-shadow: 0 2px 8px rgba(35, 78, 93, 0.06);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.bfts-logo {
+  height: 2.5rem;
+  width: 2.5rem;
+  /* Remove border and border-radius for a clean logo */
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+nav {
+  background: var(--color-bfts-primary-light);
+  color: var(--color-bfts-secondary-xlight);
+  padding: 0.8rem 2rem;
+  font-weight: 600;
+  display: flex;
+  gap: 2rem;
+  box-shadow: 0 1px 4px rgba(35, 78, 93, 0.03);
+}
+
+nav a {
+  color: var(--color-bfts-secondary-xlight);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+nav a:hover {
+  color: var(--color-bfts-secondary);
+}
+
+main {
+  padding: 2rem;
+  max-width: 900px;
+  margin: 2rem auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(35, 78, 93, 0.07);
+}
+
+button, .btn {
+  background: var(--color-bfts-primary-xlight);
+  color: var(--color-bfts-primary);
+  border: none;
+  border-radius: 6px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(35, 78, 93, 0.05);
+  transition: background 0.2s, color 0.2s;
+}
+
+button:hover, .btn:hover {
+  background: var(--color-bfts-secondary-xlight);
+  color: var(--color-bfts-primary-light);
+}
+
+footer {
+  background: var(--color-bfts-primary-xlight);
+  color: var(--color-bfts-primary);
+  text-align: center;
+  padding: 1rem 0;
+  font-size: 1rem;
+  margin-top: 3rem;
+  box-shadow: 0 -2px 8px rgba(35, 78, 93, 0.05);
+}
