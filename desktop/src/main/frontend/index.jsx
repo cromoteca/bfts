@@ -1,4 +1,3 @@
-import { AppLayout, DrawerToggle, Grid, GridColumn, Scroller } from "@vaadin/react-components";
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { initializeMockBridge } from "./mock";
@@ -36,34 +35,22 @@ function App() {
   }, []);
 
   return (
-    <AppLayout>
-      <DrawerToggle slot="navbar" />
-      <Scroller slot="drawer" className="p-s">
-      </Scroller>
-      <h1 slot="navbar">
-        MyApp
-      </h1>
-      <h3>Local Storages</h3>
-      {storages.localStorages && storages.localStorages.length === 0 ? (
-        <p>No local storages</p>
-      ) : (
-        <Grid items={storages.localStorages} allRowsVisible>
-          <GridColumn path="name" />
-          <GridColumn path="path" />
-          <GridColumn path="port" />
-        </Grid>
-      )}
-      <h3>Connected Storages</h3>
-      {storages.connectedStorages && storages.connectedStorages.length === 0 ? (
-        <p>No connected storages</p>
-      ) : (
-        <Grid items={storages.connectedStorages} allRowsVisible>
-          <GridColumn path="name" />
-          <GridColumn path="path" />
-          <GridColumn path="encryption" />
-        </Grid>
-      )}
-    </AppLayout>
+    <>
+      <nav>
+        <a href="#">Dashboard</a>
+        <a href="#">Backups</a>
+        <a href="#">Storages</a>
+        <a href="#">Settings</a>
+      </nav>
+      <main>
+        <h1>Welcome to BFTS</h1>
+        <p>Your backups are safe and robust with BFTS. Use the navigation above to manage your backups and storage devices.</p>
+        <button className="btn">Start Backup</button>
+      </main>
+      <footer>
+        &copy; {new Date().getFullYear()} BFTS. All rights reserved.
+      </footer>
+    </>
   );
 }
 
