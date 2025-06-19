@@ -1,0 +1,15 @@
+table.storages-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 2rem;
+}
+table.storages-table th {
+  text-align: left;
+  border-bottom: 2px solid #ccc;
+  padding: 8px;
+  background: #f8f8f8;
+}
+table.storages-table td {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+}

@@ -46,19 +46,10 @@ public class GUI {
     new BrowserFunction(browser, "openDirectoryPicker") {
       @Override
       public Object function(Object[] arguments) {
-        // Open directory dialog from browser window
         DirectoryDialog dialog = new DirectoryDialog(shell);
         dialog.setText("Select Directory");
         dialog.setMessage("Please select a directory");
-        String dir = dialog.open();
-
-        browser.getDisplay().asyncExec(() -> {
-          String js = "showPickedDirectory(" + (dir == null ? "null" : "'"
-              + dir.replace("\\", "\\\\").replace("'", "\\'") + "'") + ");";
-          browser.execute(js);
-        });
-
-        return null;
+        return dialog.open();
       }
     };
 

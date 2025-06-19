@@ -182,6 +182,7 @@
                   <directory>src/main/frontend</directory>
                   <includes>
                     <include>index.html</include>
+                    <include>assets/**</include>
                   </includes>
                 </resource>
               </resources>
