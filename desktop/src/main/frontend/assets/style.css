@@ -64,6 +64,12 @@ nav a:hover {
   color: var(--color-bfts-secondary);
 }
 
+nav a.active {
+  color: var(--color-bfts-secondary);
+  border-bottom: 2px solid var(--color-bfts-secondary);
+  padding-bottom: 2px;
+}
+
 main {
   padding: 2rem;
   max-width: 900px;
@@ -100,3 +106,20 @@ footer {
   margin-top: 3rem;
   box-shadow: 0 -2px 8px rgba(35, 78, 93, 0.05);
 }
+
+table.storages-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 2rem;
+}
+table.storages-table th {
+  text-align: left;
+  border-bottom: 2px solid #ccc;
+  padding: 8px;
+  background: #f8f8f8;
+}
+table.storages-table td {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+}
+
