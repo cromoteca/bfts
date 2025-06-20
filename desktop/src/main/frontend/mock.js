@@ -1,5 +1,6 @@
 export function initializeMockBridge() {
   window.invoke = (method, params) => {
+    // `list` has no parameters
     if (method === "list") {
       return JSON.stringify({
         localStorages: [
@@ -9,12 +10,15 @@ export function initializeMockBridge() {
         ],
         connectedStorages: [
           { name: "Mock Connected", path: "192.168.2.15:5757", encryption: "NONE" },
-          { name: "Another Connected", path: "backup:1234", encryption: "DATA" },
+          { name: "Another Connected", path: "/mnt/mock:1234", encryption: "DATA" },
           { name: "Third Connected", path: "backup.example.com:8686", encryption: "FULL" }
         ]
       });
+    } else if (method === "init") {
+      // `init` has 3 parameters: name (string), path (string), inMemory (boolean)
+      const [ name, path, inMemory ] = params || [];
+      return `Local storage ${name} initialized in directory ${path}`;
     }
-    return "{}";
   };
   window.openDirectoryPicker = () => {
     return "/mnt/new-directory";
