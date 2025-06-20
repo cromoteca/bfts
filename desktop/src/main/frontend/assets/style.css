@@ -123,3 +123,49 @@ table.storages-table td {
   border-bottom: 1px solid #eee;
 }
 
+.center-muted {
+  text-align: center;
+  color: #888;
+}
+
+.flex-center-gap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.input-small {
+  width: 70px;
+  font-size: 12px;
+  padding: 2px;
+}
+.input-medium {
+  width: 100px;
+  font-size: 12px;
+  padding: 2px;
+}
+.input-large {
+  width: 180px;
+  font-size: 12px;
+  padding: 2px;
+}
+.input-xsmall {
+  width: 60px;
+  font-size: 12px;
+  padding: 2px;
+}
+
+.btn-small {
+  font-size: 12px;
+  padding: 2px 8px;
+}
+
+.select-small {
+  font-size: 12px;
+  padding: 2px;
+}
+
+.ml-0 {
+  margin-left: 0;
+}
+

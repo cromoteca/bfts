@@ -7,24 +7,27 @@ const ENCRYPTION_LABELS = {
 };
 
 export default function Storages() {
-  const [storages, setStorages] = useState({ localStorages: [], connectedStorages: [] });
-  const [newStorage, setNewStorage] = useState({ name: '', path: '' });
+  const [localStorages, setLocalStorages] = useState([]);
+  const [connectedStorages, setConnectedStorages] = useState([]);
+  const [newLocalStorage, setNewLocalStorage] = useState({ name: '', path: '', inMemory: false });
   const [newConnectedStorage, setNewConnectedStorage] = useState(null);
 
   useEffect(() => {
-    // Fetch storages on mount
     const result = window.invoke('list');
     try {
-      setStorages(JSON.parse(result));
+      const parsed = JSON.parse(result);
+      setLocalStorages(parsed.localStorages || []);
+      setConnectedStorages(parsed.connectedStorages || []);
     } catch {
-      setStorages({ localStorages: [], connectedStorages: [] });
+      setLocalStorages([]);
+      setConnectedStorages([]);
     }
   }, []);
 
   const handlePickDirectory = async () => {
     if (window.openDirectoryPicker) {
       const dir = await window.openDirectoryPicker();
-      if (dir) setNewStorage(s => ({ ...s, path: dir }));
+      if (dir) setNewLocalStorage(s => ({ ...s, path: dir }));
     }
   };
 
@@ -42,14 +45,14 @@ export default function Storages() {
           </tr>
         </thead>
         <tbody>
-          {storages.localStorages.length === 0 ? (
+          {localStorages.length === 0 ? (
             <tr>
-              <td colSpan={4} style={{ textAlign: 'center', color: '#888' }}>
+              <td colSpan={4} className="center-muted">
                 No local storages found.
               </td>
             </tr>
           ) : (
-            storages.localStorages.map((storage, idx) => (
+            localStorages.map((storage, idx) => (
               <tr key={idx}>
                 <td>{storage.name}</td>
                 <td>{storage.path}</td>
@@ -57,15 +60,15 @@ export default function Storages() {
                   {storage.port !== null ? (
                     storage.port
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <div className="flex-center-gap">
                       <input
                         type="number"
                         min={1}
                         max={65535}
-                        style={{ width: 70, fontSize: 12, padding: 2 }}
+                        className="input-small"
                         placeholder="Port"
                       />
-                      <button style={{ fontSize: 12, padding: '2px 8px' }}>Publish</button>
+                      <button className="btn-small">Publish</button>
                     </div>
                   )}
                 </td>
@@ -77,29 +80,38 @@ export default function Storages() {
             <td>
               <input
                 type="text"
-                value={newStorage.name}
-                onChange={e => setNewStorage(s => ({ ...s, name: e.target.value }))}
+                value={newLocalStorage.name}
+                onChange={e => setNewLocalStorage(s => ({ ...s, name: e.target.value }))}
                 placeholder="Name"
-                style={{ width: 100, fontSize: 12, padding: 2 }}
+                className="input-medium"
               />
             </td>
             <td>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div className="flex-center-gap">
                 <input
                   type="text"
-                  value={newStorage.path}
+                  value={newLocalStorage.path}
                   readOnly
                   placeholder="Path"
-                  style={{ width: 180, fontSize: 12, padding: 2 }}
+                  className="input-large"
                 />
-                <button type="button" style={{ fontSize: 12, padding: '2px 8px' }} onClick={handlePickDirectory}>
+                <button type="button" className="btn-small" onClick={handlePickDirectory}>
                   Browse
                 </button>
               </div>
             </td>
-            <td />
             <td>
-              <button type="button" style={{ fontSize: 12, padding: '2px 8px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  type="checkbox"
+                  checked={!!newLocalStorage.inMemory}
+                  onChange={e => setNewLocalStorage(s => ({ ...s, inMemory: e.target.checked }))}
+                />
+                In memory
+              </label>
+            </td>
+            <td>
+              <button type="button" className="btn-small">
                 Add
               </button>
             </td>
@@ -118,14 +130,14 @@ export default function Storages() {
           </tr>
         </thead>
         <tbody>
-          {storages.connectedStorages.length === 0 ? (
+          {connectedStorages.length === 0 ? (
             <tr>
-              <td colSpan={4} style={{ textAlign: 'center', color: '#888' }}>
+              <td colSpan={4} className="center-muted">
                 No connected storages found.
               </td>
             </tr>
           ) : (
-            storages.connectedStorages.map((storage, idx) => (
+            connectedStorages.map((storage, idx) => (
               <tr key={idx}>
                 <td>{storage.name}</td>
                 <td>{storage.path}</td>
@@ -141,17 +153,17 @@ export default function Storages() {
                 value={newConnectedStorage?.name || ''}
                 onChange={e => setNewConnectedStorage(s => ({ ...s, name: e.target.value }))}
                 placeholder="Name"
-                style={{ width: 100, fontSize: 12, padding: 2 }}
+                className="input-medium"
               />
             </td>
             <td>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div className="flex-center-gap">
                 <input
                   type="text"
                   value={newConnectedStorage?.host || ''}
                   onChange={e => setNewConnectedStorage(s => ({ ...s, host: e.target.value }))}
                   placeholder="Host"
-                  style={{ width: 100, fontSize: 12, padding: 2 }}
+                  className="input-medium"
                 />
                 <span>:</span>
                 <input
@@ -161,7 +173,7 @@ export default function Storages() {
                   value={newConnectedStorage?.port || ''}
                   onChange={e => setNewConnectedStorage(s => ({ ...s, port: e.target.value }))}
                   placeholder="Port"
-                  style={{ width: 60, fontSize: 12, padding: 2 }}
+                  className="input-xsmall"
                 />
               </div>
             </td>
@@ -169,7 +181,7 @@ export default function Storages() {
               <select
                 value={newConnectedStorage?.encryption || 'NONE'}
                 onChange={e => setNewConnectedStorage(s => ({ ...s, encryption: e.target.value }))}
-                style={{ fontSize: 12, padding: 2 }}
+                className="select-small"
               >
                 <option value="NONE">No encryption</option>
                 <option value="DATA">Data only</option>
@@ -177,7 +189,7 @@ export default function Storages() {
               </select>
             </td>
             <td>
-              <button type="button" style={{ fontSize: 12, padding: '2px 8px', marginLeft: 0 }}>
+              <button type="button" className="btn-small ml-0">
                 Add
               </button>
             </td>
