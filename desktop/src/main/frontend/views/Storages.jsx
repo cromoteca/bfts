@@ -38,12 +38,13 @@ export default function Storages() {
             <th>Name</th>
             <th>Path</th>
             <th>Port</th>
+            <th />
           </tr>
         </thead>
         <tbody>
           {storages.localStorages.length === 0 ? (
             <tr>
-              <td colSpan={3} style={{ textAlign: 'center', color: '#888' }}>
+              <td colSpan={4} style={{ textAlign: 'center', color: '#888' }}>
                 No local storages found.
               </td>
             </tr>
@@ -68,6 +69,7 @@ export default function Storages() {
                     </div>
                   )}
                 </td>
+                <td />
               </tr>
             ))
           )}
@@ -95,6 +97,7 @@ export default function Storages() {
                 </button>
               </div>
             </td>
+            <td />
             <td>
               <button type="button" style={{ fontSize: 12, padding: '2px 8px' }}>
                 Add
@@ -111,12 +114,13 @@ export default function Storages() {
             <th>Name</th>
             <th>Path</th>
             <th>Encryption</th>
+            <th />
           </tr>
         </thead>
         <tbody>
           {storages.connectedStorages.length === 0 ? (
             <tr>
-              <td colSpan={3} style={{ textAlign: 'center', color: '#888' }}>
+              <td colSpan={4} style={{ textAlign: 'center', color: '#888' }}>
                 No connected storages found.
               </td>
             </tr>
@@ -126,6 +130,7 @@ export default function Storages() {
                 <td>{storage.name}</td>
                 <td>{storage.path}</td>
                 <td>{ENCRYPTION_LABELS[storage.encryption] || storage.encryption}</td>
+                <td />
               </tr>
             ))
           )}
@@ -170,7 +175,9 @@ export default function Storages() {
                 <option value="DATA">Data only</option>
                 <option value="FULL">Data and filenames</option>
               </select>
-              <button type="button" style={{ fontSize: 12, padding: '2px 8px', marginLeft: 8 }}>
+            </td>
+            <td>
+              <button type="button" style={{ fontSize: 12, padding: '2px 8px', marginLeft: 0 }}>
                 Add
               </button>
             </td>

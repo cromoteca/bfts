@@ -128,6 +128,24 @@ public class GUI {
       }
     };
 
+    new BrowserFunction(browser, "init") {
+      @Override
+      public Object function(Object[] arguments) {
+        try {
+          if (arguments == null || arguments.length != 3) {
+            throw new IllegalArgumentException("Expected 3 arguments: name, path, inMemory");
+          }
+          String name = String.valueOf(arguments[0]);
+          String path = String.valueOf(arguments[1]);
+          boolean inMemory = Boolean.parseBoolean(String.valueOf(arguments[2]));
+          clientAPI.init(name, path, inMemory);
+          return String.format("Local storage %s initialized in directory %s", name, path);
+        } catch (Exception ex) {
+          return String.format("Error: %s: %s", ex.getClass().getSimpleName(), ex.getMessage());
+        }
+      }
+    };
+
     shell.setSize(1024, 768);
   }
 
