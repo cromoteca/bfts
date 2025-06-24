@@ -10,7 +10,7 @@ export default function Storages() {
   const [localStorages, setLocalStorages] = useState([]);
   const [connectedStorages, setConnectedStorages] = useState([]);
   const [newLocalStorage, setNewLocalStorage] = useState({ name: '', path: '', inMemory: false });
-  const [newConnectedStorage, setNewConnectedStorage] = useState(null);
+  const [newConnectedStorage, setNewConnectedStorage] = useState({ name: '', path: '', encryption: 'NONE' });
 
   useEffect(() => {
     const result = window.invoke('list');
@@ -24,11 +24,26 @@ export default function Storages() {
     }
   }, []);
 
-  const handlePickDirectory = async () => {
+  const handlePickDirectory = async (e) => {
+    const type = e.currentTarget.getAttribute('data-type');
     if (window.openDirectoryPicker) {
       const dir = await window.openDirectoryPicker();
-      if (dir) setNewLocalStorage(s => ({ ...s, path: dir }));
+      if (dir) {
+        if (type === 'local') {
+          setNewLocalStorage(s => ({ ...s, path: dir }));
+        } else if (type === 'connected') {
+          setNewConnectedStorage(s => ({ ...s, path: dir }));
+        }
+      }
     }
+  };
+
+  // Helper to check if a local storage path is already connected
+  const isPathConnected = (path) => connectedStorages.some(cs => cs.path === path);
+
+  // Handler to copy local storage path and name to newConnectedStorage
+  const handleConnectLocal = (path, name) => {
+    setNewConnectedStorage(s => ({ ...s, path, name }));
   };
 
   return (
@@ -72,7 +87,13 @@ export default function Storages() {
                     </div>
                   )}
                 </td>
-                <td />
+                <td>
+                  {!isPathConnected(storage.path) && (
+                    <button type="button" className="btn-small" onClick={() => handleConnectLocal(storage.path, storage.name)}>
+                      Connect
+                    </button>
+                  )}
+                </td>
               </tr>
             ))
           )}
@@ -95,7 +116,7 @@ export default function Storages() {
                   placeholder="Path"
                   className="input-large"
                 />
-                <button type="button" className="btn-small" onClick={handlePickDirectory}>
+                <button type="button" className="btn-small" data-type="local" onClick={handlePickDirectory}>
                   Browse
                 </button>
               </div>
@@ -150,7 +171,7 @@ export default function Storages() {
             <td>
               <input
                 type="text"
-                value={newConnectedStorage?.name || ''}
+                value={newConnectedStorage.name}
                 onChange={e => setNewConnectedStorage(s => ({ ...s, name: e.target.value }))}
                 placeholder="Name"
                 className="input-medium"
@@ -160,26 +181,19 @@ export default function Storages() {
               <div className="flex-center-gap">
                 <input
                   type="text"
-                  value={newConnectedStorage?.host || ''}
-                  onChange={e => setNewConnectedStorage(s => ({ ...s, host: e.target.value }))}
-                  placeholder="Host"
-                  className="input-medium"
+                  value={newConnectedStorage.path}
+                  onChange={e => setNewConnectedStorage(s => ({ ...s, path: e.target.value }))}
+                  placeholder="Path or Host:Port"
+                  className="input-large"
                 />
-                <span>:</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={65535}
-                  value={newConnectedStorage?.port || ''}
-                  onChange={e => setNewConnectedStorage(s => ({ ...s, port: e.target.value }))}
-                  placeholder="Port"
-                  className="input-xsmall"
-                />
+                <button type="button" className="btn-small" data-type="connected" onClick={handlePickDirectory}>
+                  Browse
+                </button>
               </div>
             </td>
             <td>
               <select
-                value={newConnectedStorage?.encryption || 'NONE'}
+                value={newConnectedStorage.encryption}
                 onChange={e => setNewConnectedStorage(s => ({ ...s, encryption: e.target.value }))}
                 className="select-small"
               >
