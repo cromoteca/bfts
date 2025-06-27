@@ -171,12 +171,13 @@ public class ClientAPI {
    * @param name Storage name
    * @param path Storage path
    * @param inMemory In memory database
+   * @return Message about the operation
    */
-  public void init(String name, String path, boolean inMemory) {
+  public String init(String name, String path, boolean inMemory) {
     StorageConfiguration storageConfig = new StorageConfiguration();
     LocalStorage.init(FilePath.get(path), inMemory, storageConfig);
     CONFIG.setLocalStoragePath(name, path);
-    System.out.format("Local storage %s initialized in directory %s\n", name, path);
+    return String.format("Local storage %s initialized in directory %s\n", name, path);
   }
 
   /**
@@ -210,6 +211,11 @@ public class ClientAPI {
     EncryptionType encryptionType = EncryptionType.fromString(encryption);
     CONFIG.setConnectedStoragePath(name, path);
     CONFIG.setConnectedStorageEncryptionType(name, encryptionType);
+
+    if (!path.contains(":") && CONFIG.getLocalStoragePath(name) == null) {
+      CONFIG.setLocalStoragePath(name, path);
+    }
+
     System.out.format("Prepared connection to storage %s as %s\n", name, CONFIG.getClientName());
   }
 
@@ -220,19 +226,20 @@ public class ClientAPI {
    * @param name Source name
    * @param path Source path
    * @throws IOException If an I/O error occurs
+   * @return Message about the operation
    */
-  public void add(String storageName, String name, String path) throws IOException {
+  public String add(String storageName, String name, String path) throws IOException {
     if (!Util.validName(name)) {
-      System.err.println("Source name is not valid");
+      return "Source name is not valid\n";
     } else {
       FilePath directory = FilePath.get(path);
 
       if (directory.isDirectory()) {
         Storage storage = getStorage(storageName);
         storage.addSource(CONFIG.getClientName(), name, path);
-        System.out.format("Added source %s to storage %s\n", name, storageName);
+        return String.format("Added source %s to storage %s\n", name, storageName);
       } else {
-        System.out.format("%s is not a directory\n", path);
+        return String.format("%s is not a directory\n", path);
       }
     }
   }
