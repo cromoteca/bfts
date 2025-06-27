@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNotification } from "../NotificationContext.jsx";
 
 const ENCRYPTION_LABELS = {
   NONE: "No encryption",
@@ -11,17 +12,10 @@ export default function Storages() {
   const [connectedStorages, setConnectedStorages] = useState([]);
   const [newLocalStorage, setNewLocalStorage] = useState({ name: '', path: '', inMemory: false });
   const [newConnectedStorage, setNewConnectedStorage] = useState({ name: '', path: '', encryption: 'NONE' });
+  const notify = useNotification();
 
   useEffect(() => {
-    const result = window.invoke('list');
-    try {
-      const parsed = JSON.parse(result);
-      setLocalStorages(parsed.localStorages || []);
-      setConnectedStorages(parsed.connectedStorages || []);
-    } catch {
-      setLocalStorages([]);
-      setConnectedStorages([]);
-    }
+    reloadStorages();
   }, []);
 
   const handlePickDirectory = async (e) => {
@@ -29,10 +23,19 @@ export default function Storages() {
     if (window.openDirectoryPicker) {
       const dir = await window.openDirectoryPicker();
       if (dir) {
+        const dirName = (dir.replace(/\\|\//g, '/').split('/').filter(Boolean).pop()) || '';
         if (type === 'local') {
-          setNewLocalStorage(s => ({ ...s, path: dir }));
+          setNewLocalStorage(s => ({
+            ...s,
+            path: dir,
+            name: s.name ? s.name : dirName
+          }));
         } else if (type === 'connected') {
-          setNewConnectedStorage(s => ({ ...s, path: dir }));
+          setNewConnectedStorage(s => ({
+            ...s,
+            path: dir,
+            name: s.name ? s.name : dirName
+          }));
         }
       }
     }
@@ -46,10 +49,32 @@ export default function Storages() {
     setNewConnectedStorage(s => ({ ...s, path, name }));
   };
 
+  // Helper to reload storages list
+  const reloadStorages = () => {
+    const result = window.invoke('list');
+    try {
+      const parsed = JSON.parse(result);
+      setLocalStorages(parsed.localStorages || []);
+      setConnectedStorages(parsed.connectedStorages || []);
+    } catch {
+      setLocalStorages([]);
+      setConnectedStorages([]);
+    }
+  };
+
+  // Handler for adding a new local storage
+  const handleAddLocalStorage = () => {
+    if (!newLocalStorage.name.trim() || !newLocalStorage.path.trim()) return;
+    const result = window.invoke('init', [newLocalStorage.name, newLocalStorage.path, newLocalStorage.inMemory]);
+    if (notify) notify(result);
+    setNewLocalStorage({ name: '', path: '', inMemory: false });
+    reloadStorages();
+  };
+
   return (
     <div>
       <h1>Storages</h1>
-      <h2>Local Storages</h2>
+      <h2>Known Local Storages</h2>
       <table className="storages-table">
         <thead>
           <tr>
@@ -112,7 +137,7 @@ export default function Storages() {
                 <input
                   type="text"
                   value={newLocalStorage.path}
-                  readOnly
+                  onChange={e => setNewLocalStorage(s => ({ ...s, path: e.target.value }))}
                   placeholder="Path"
                   className="input-large"
                 />
@@ -132,7 +157,7 @@ export default function Storages() {
               </label>
             </td>
             <td>
-              <button type="button" className="btn-small">
+              <button type="button" className="btn-small" onClick={handleAddLocalStorage} disabled={!newLocalStorage.name.trim() || !newLocalStorage.path.trim()}>
                 Add
               </button>
             </td>
