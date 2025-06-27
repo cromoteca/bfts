@@ -12,6 +12,7 @@ export default function Storages() {
   const [connectedStorages, setConnectedStorages] = useState([]);
   const [newLocalStorage, setNewLocalStorage] = useState({ name: '', path: '', inMemory: false });
   const [newConnectedStorage, setNewConnectedStorage] = useState({ name: '', path: '', encryption: 'NONE' });
+  const [portInputs, setPortInputs] = useState({});
   const notify = useNotification();
 
   useEffect(() => {
@@ -71,6 +72,18 @@ export default function Storages() {
     reloadStorages();
   };
 
+  // Handler for port input change
+  const handlePortInputChange = (path, value) => {
+    setPortInputs(inputs => ({ ...inputs, [path]: value }));
+  };
+
+  // Handler for publish
+  const handlePublish = (name, path, port) => {
+    const result = window.invoke('publish', [name, port]);
+    if (notify) notify(result);
+    reloadStorages();
+  };
+
   return (
     <div>
       <h1>Storages</h1>
@@ -107,15 +120,19 @@ export default function Storages() {
                         max={65535}
                         className="input-small"
                         placeholder="Port"
+                        value={portInputs[storage.path] || ''}
+                        onChange={e => handlePortInputChange(storage.path, e.target.value)}
                       />
-                      <button className="btn-small">Publish</button>
+                      <button className="btn-small" disabled={!Number(portInputs[storage.path])} onClick={() => handlePublish(storage.name, storage.path, portInputs[storage.path])}>
+                        Publish
+                      </button>
                     </div>
                   )}
                 </td>
                 <td>
                   {!isPathConnected(storage.path) && (
                     <button type="button" className="btn-small" onClick={() => handleConnectLocal(storage.path, storage.name)}>
-                      Connect
+                      Copy to Connected
                     </button>
                   )}
                 </td>

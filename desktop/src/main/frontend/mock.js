@@ -20,6 +20,11 @@ export function initializeMockBridge() {
       const [ name, path ] = params || [];
       localStorages.push({ name, path, port: null });
       return `Local storage ${name} initialized in directory ${path}`;
+    } else if (method === "publish") {
+      const [ name, port ] = params || [];
+      const storage = localStorages.find(s => s.name === name);
+      storage.port = port;
+      return `Local storage ${name} published on port ${port}`;
     }
   };
 
