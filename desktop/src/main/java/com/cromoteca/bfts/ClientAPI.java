@@ -187,7 +187,7 @@ public class ClientAPI {
    * @param port HTTP port
    * @throws GeneralSecurityException If a security exception occurs
    */
-  public void publish(String name, int port) throws GeneralSecurityException {
+  public String publish(String name, int port) throws GeneralSecurityException {
     String path = CONFIG.getLocalStoragePath(name);
     LocalStorage storage = LocalStorage.get(FilePath.get(path));
     StorageConfiguration storageConfig = storage.getStorageConfiguration();
@@ -197,7 +197,7 @@ public class ClientAPI {
         askPassword());
     storage.addKeyPair(crypto.generateKeyPair());
     CONFIG.setLocalStoragePort(name, port);
-    System.out.format("Storage %s published on port %d\n", name, port);
+    return String.format("Storage %s published on port %d\n", name, port);
   }
 
   /**
