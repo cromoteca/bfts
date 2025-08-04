@@ -16,7 +16,9 @@
  */
 package com.cromoteca.bfts.client;
 
+import com.cromoteca.bfts.cryptography.Cryptographer;
 import com.cromoteca.bfts.storage.EncryptionType;
+import java.security.GeneralSecurityException;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
@@ -31,6 +33,14 @@ public class Configuration {
       = "longOperationDuration";
   private static final int DEFAULT_LONG_OPERATION_DURATION = 30;
   private final Preferences p;
+  // 32 random bytes (AES-256 key)
+  private static final byte[] PASSWORD_KEY = new byte[] {
+    -93, 31, -73, -62, 77, -24, -102, 91,
+    108, -47, -30, 58, 127, -80, -55, 18,
+    -114, -89, -13, 75, -43, 106, 44, -31,
+    -99, 83, 122, -72, -60, 30, -10, 61
+  };
+  private static final Cryptographer PASSWORD_CRYPT = new Cryptographer(PASSWORD_KEY);
 
   /**
    * Creates a new configuration.
@@ -161,6 +171,48 @@ public class Configuration {
       return connectedStorageNode().childrenNames();
     } catch (BackingStoreException ex) {
       throw new ConfigurationException(ex);
+    }
+  }
+
+  public void setConnectedStorageTransmissionPassword(String name,
+      String password) {
+    try {
+        String encrypted = PASSWORD_CRYPT.encrypt(password);
+        connectedStorageNode().node(name).put("transmissionPassword", encrypted);
+    } catch (GeneralSecurityException e) {
+        throw new RuntimeException("Encryption error", e);
+    }
+  }
+
+  public String getConnectedStorageTransmissionPassword(String name) {
+    String encrypted = connectedStorageNode().node(name)
+        .get("transmissionPassword", null);
+    if (encrypted == null) return null;
+    try {
+        return PASSWORD_CRYPT.decrypt(encrypted);
+    } catch (GeneralSecurityException e) {
+        throw new RuntimeException("Decryption error", e);
+    }
+  }
+
+  public void setConnectedStorageFileEncryptionPassword(String name,
+      String password) {
+    try {
+        String encrypted = PASSWORD_CRYPT.encrypt(password);
+        connectedStorageNode().node(name).put("fileEncryptionPassword", encrypted);
+    } catch (GeneralSecurityException e) {
+        throw new RuntimeException("Encryption error", e);
+    }
+  }
+
+  public String getConnectedStorageFileEncryptionPassword(String name) {
+    String encrypted = connectedStorageNode().node(name)
+        .get("fileEncryptionPassword", null);
+    if (encrypted == null) return null;
+    try {
+        return PASSWORD_CRYPT.decrypt(encrypted);
+    } catch (GeneralSecurityException e) {
+        throw new RuntimeException("Decryption error", e);
     }
   }
 }

@@ -69,15 +69,6 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
- * A shell that can be used to configure backups and run them interactively. It
- * is also able to run the program without interaction by passing some options
- * as command line arguments. Examples:
- *
- * <pre>java -jar bfts.jar</pre> shows a prompt;
- *
- * <pre>java -jar bfts.jar start true/false password</pre> runs the program in
- * fast/nice mode using the password when needed.
- *
  * @author Luciano Vernaschi (luciano at cromoteca.com)
  */
 public class ClientAPI {
@@ -87,7 +78,6 @@ public class ClientAPI {
   private static final Configuration CONFIG
       = new Configuration(Preferences.userNodeForPackage(ClientAPI.class));
   private static final ObjectMapper mapper = new ObjectMapper();
-  private char[] password;
 
   /**
    * Quits the program.
@@ -119,53 +109,6 @@ public class ClientAPI {
   }
 
   /**
-   * Prompt for a password if it has not been stored previously.
-   */
-  private char[] askPassword() {
-    if (password != null) {
-      System.out.println("Using previously provided password");
-      return password;
-    }
-
-    Console console = System.console();
-
-    if (console == null) {
-      throw new IllegalStateException("Console is not available."
-          + " Use the 'password' command to store your password");
-    }
-
-    System.out.print("Enter password: ");
-    return console.readPassword();
-  }
-
-  /**
-   * Prompts for password and keeps it in memory instead of asking for it every time.
-   * Note: a stored password will be used for both storage encryption and HTTP
-   * encryption. This is usually fine, since most users don't want to remember
-   * multiple passwords, but it is good to remember that every backup can have
-   * its own password and that the HTTP one is independent too.
-   */
-  public void password() {
-    password = askPassword();
-  }
-
-  /**
-   * Keeps in memory a password passed as parameter, useful when console is not available.
-   *
-   * @param password Password
-   */
-  public void password(String password) {
-    this.password = password.toCharArray();
-  }
-
-  /**
-   * Forgets current password.
-   */
-  public void noPassword() {
-    password = null;
-  }
-
-  /**
    * Initializes a new local storage.
    *
    * @param name Storage name
@@ -187,14 +130,15 @@ public class ClientAPI {
    * @param port HTTP port
    * @throws GeneralSecurityException If a security exception occurs
    */
-  public String publish(String name, int port) throws GeneralSecurityException {
+  public String publish(String name, int port, String password)
+      throws GeneralSecurityException {
     String path = CONFIG.getLocalStoragePath(name);
     LocalStorage storage = LocalStorage.get(FilePath.get(path));
     StorageConfiguration storageConfig = storage.getStorageConfiguration();
 
     // The HTTP connection needs a key pair to encrypt exchanged data
     Cryptographer crypto = new Cryptographer(storageConfig.getSalt(),
-        askPassword());
+        password.toCharArray());
     storage.addKeyPair(crypto.generateKeyPair());
     CONFIG.setLocalStoragePort(name, port);
     return String.format("Storage %s published on port %d\n", name, port);
@@ -207,10 +151,17 @@ public class ClientAPI {
    * @param path Storage path (Local dir or host:port)
    * @param encryption Encryption (none, data, full)
    */
-  public void connect(String name, String path, String encryption) {
+  public void connect(String name, String path, String encryption, String password) {
     EncryptionType encryptionType = EncryptionType.fromString(encryption);
     CONFIG.setConnectedStoragePath(name, path);
     CONFIG.setConnectedStorageEncryptionType(name, encryptionType);
+
+    if (encryptionType != EncryptionType.NONE) {
+      if (password == null || password.isEmpty()) {
+        throw new IllegalArgumentException("Password must not be empty when encryption is enabled");
+      }
+      CONFIG.setConnectedStorageTransmissionPassword(name, password);
+    }
 
     if (!path.contains(":") && CONFIG.getLocalStoragePath(name) == null) {
       CONFIG.setLocalStoragePath(name, path);
@@ -627,7 +578,8 @@ public class ClientAPI {
       // remote storage
       String host = split.getFirst();
       int port = split.getSecond();
-      storage = RemoteStorage.create(host, port, askPassword());
+      storage = RemoteStorage.create(host, port,
+          CONFIG.getConnectedStorageTransmissionPassword(path).toCharArray());
       System.out.format("Connected to remote storage %s\n", path);
     }
 
@@ -635,12 +587,14 @@ public class ClientAPI {
       switch (encryptionType) {
         case DATA:
           storage = EncryptedStorages.getEncryptedStorage(storage,
-              askPassword(), false);
+              CONFIG.getConnectedStorageFileEncryptionPassword(path).toCharArray(),
+              false);
           System.out.format("Using data encryption on storage %s\n", path);
           break;
         case FULL:
           storage = EncryptedStorages.getEncryptedStorage(storage,
-              askPassword(), true);
+              CONFIG.getConnectedStorageFileEncryptionPassword(path).toCharArray(),
+              true);
           System.out.format("Using full encryption on storage %s\n", path);
           break;
         case NONE:
