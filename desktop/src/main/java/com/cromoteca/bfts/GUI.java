@@ -43,6 +43,9 @@ public class GUI {
     String url = GUI.class.getResource("/ui/index.html").toExternalForm();
     browser.setUrl(url);
 
+    LOGGER.info("Initializing GUI using browser engine: {}",
+        browser.getBrowserType());
+
     new BrowserFunction(browser, "openDirectoryPicker") {
       @Override
       public Object function(Object[] arguments) {
