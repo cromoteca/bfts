@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNotification } from "../NotificationContext.jsx";
+import PasswordDialog from "../components/PasswordDialog.jsx";
 
 const ENCRYPTION_LABELS = {
   NONE: "No encryption",
@@ -11,8 +12,15 @@ export default function Storages() {
   const [localStorages, setLocalStorages] = useState([]);
   const [connectedStorages, setConnectedStorages] = useState([]);
   const [newLocalStorage, setNewLocalStorage] = useState({ name: '', path: '', inMemory: false });
-  const [newConnectedStorage, setNewConnectedStorage] = useState({ name: '', path: '', encryption: 'NONE' });
+  const [newConnectedStorage, setNewConnectedStorage] = useState({ 
+    name: '', 
+    path: '', 
+    encryption: 'NONE', 
+    transmissionPassword: '', 
+    fileEncryptionPassword: '' 
+  });
   const [portInputs, setPortInputs] = useState({});
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const notify = useNotification();
 
   useEffect(() => {
@@ -47,7 +55,13 @@ export default function Storages() {
 
   // Handler to copy local storage path and name to newConnectedStorage
   const handleConnectLocal = (path, name) => {
-    setNewConnectedStorage(s => ({ ...s, path, name }));
+    setNewConnectedStorage(s => ({ 
+      ...s, 
+      path, 
+      name, 
+      transmissionPassword: '', 
+      fileEncryptionPassword: '' 
+    }));
   };
 
   // Helper to reload storages list
@@ -70,6 +84,44 @@ export default function Storages() {
     if (notify) notify(result);
     setNewLocalStorage({ name: '', path: '', inMemory: false });
     reloadStorages();
+  };
+
+  // Handler for adding a new connected storage
+  const handleAddConnectedStorage = () => {
+    if (!newConnectedStorage.name.trim() || !newConnectedStorage.path.trim()) return;
+    
+    // Open password dialog
+    setShowPasswordDialog(true);
+  };
+
+  // Handler for confirming password dialog
+  const handleConfirmPasswords = (passwords) => {
+    // Call backend with passwords
+    const result = window.invoke('connect', [
+      newConnectedStorage.name, 
+      newConnectedStorage.path, 
+      newConnectedStorage.encryption,
+      passwords.transmissionPassword,
+      passwords.fileEncryptionPassword,
+    ]);
+    
+    if (notify) notify(result);
+    
+    // Reset form and close dialog
+    setNewConnectedStorage({ 
+      name: '', 
+      path: '', 
+      encryption: 'NONE', 
+      transmissionPassword: '', 
+      fileEncryptionPassword: '' 
+    });
+    setShowPasswordDialog(false);
+    reloadStorages();
+  };
+
+  // Handler for canceling password dialog
+  const handleCancelPasswords = () => {
+    setShowPasswordDialog(false);
   };
 
   // Handler for port input change
@@ -245,13 +297,26 @@ export default function Storages() {
               </select>
             </td>
             <td>
-              <button type="button" className="btn-small ml-0">
+              <button 
+                type="button" 
+                className="btn-small ml-0" 
+                onClick={handleAddConnectedStorage}
+                disabled={!newConnectedStorage.name.trim() || !newConnectedStorage.path.trim()}
+              >
                 Add
               </button>
             </td>
           </tr>
         </tbody>
       </table>
+
+      <PasswordDialog
+        isOpen={showPasswordDialog}
+        storageName={newConnectedStorage.name}
+        encryptionType={newConnectedStorage.encryption}
+        onConfirm={handleConfirmPasswords}
+        onCancel={handleCancelPasswords}
+      />
     </div>
   );
 }
