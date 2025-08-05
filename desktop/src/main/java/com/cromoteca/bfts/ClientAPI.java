@@ -150,17 +150,26 @@ public class ClientAPI {
    * @param name Connection name
    * @param path Storage path (Local dir or host:port)
    * @param encryption Encryption (none, data, full)
+   * @param transmissionPassword Password for HTTP transmission encryption
+   * @param fileEncryptionPassword Password for client-side file encryption (null if encryption is NONE)
    */
-  public void connect(String name, String path, String encryption, String password) {
+  public void connect(String name, String path, String encryption, String transmissionPassword, String fileEncryptionPassword) {
     EncryptionType encryptionType = EncryptionType.fromString(encryption);
     CONFIG.setConnectedStoragePath(name, path);
     CONFIG.setConnectedStorageEncryptionType(name, encryptionType);
 
+    // Transmission password is always required
+    if (transmissionPassword == null || transmissionPassword.isEmpty()) {
+      throw new IllegalArgumentException("Transmission password must not be empty");
+    }
+    CONFIG.setConnectedStorageTransmissionPassword(name, transmissionPassword);
+
+    // File encryption password is only required when encryption is not NONE
     if (encryptionType != EncryptionType.NONE) {
-      if (password == null || password.isEmpty()) {
-        throw new IllegalArgumentException("Password must not be empty when encryption is enabled");
+      if (fileEncryptionPassword == null || fileEncryptionPassword.isEmpty()) {
+        throw new IllegalArgumentException("File encryption password must not be empty when encryption is enabled");
       }
-      CONFIG.setConnectedStorageTransmissionPassword(name, password);
+      CONFIG.setConnectedStorageFileEncryptionPassword(name, fileEncryptionPassword);
     }
 
     if (!path.contains(":") && CONFIG.getLocalStoragePath(name) == null) {
@@ -579,7 +588,7 @@ public class ClientAPI {
       String host = split.getFirst();
       int port = split.getSecond();
       storage = RemoteStorage.create(host, port,
-          CONFIG.getConnectedStorageTransmissionPassword(path).toCharArray());
+          CONFIG.getConnectedStorageTransmissionPassword(storageName).toCharArray());
       System.out.format("Connected to remote storage %s\n", path);
     }
 
@@ -587,13 +596,13 @@ public class ClientAPI {
       switch (encryptionType) {
         case DATA:
           storage = EncryptedStorages.getEncryptedStorage(storage,
-              CONFIG.getConnectedStorageFileEncryptionPassword(path).toCharArray(),
+              CONFIG.getConnectedStorageFileEncryptionPassword(storageName).toCharArray(),
               false);
           System.out.format("Using data encryption on storage %s\n", path);
           break;
         case FULL:
           storage = EncryptedStorages.getEncryptedStorage(storage,
-              CONFIG.getConnectedStorageFileEncryptionPassword(path).toCharArray(),
+              CONFIG.getConnectedStorageFileEncryptionPassword(storageName).toCharArray(),
               true);
           System.out.format("Using full encryption on storage %s\n", path);
           break;
