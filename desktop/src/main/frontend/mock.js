@@ -28,6 +28,10 @@ export function initializeMockBridge() {
   ];
   const logEntries = [];
   let lastLogId = 0;
+  let controlPort = 8615;
+  let controlOwner = true;
+  const runningState = Object.fromEntries(connectedStorages.map(s => [s.name, false]));
+  const completingState = {};
 
   const pushLog = (message, stream = "stdout") => {
     const entry = {
@@ -72,6 +76,7 @@ export function initializeMockBridge() {
         fileEncryptionPassword 
       });
       pushLog(`Connected to storage ${name} at ${path}`);
+      runningState[name] = false;
       return `Connected to storage ${name} at ${path}`;
     } else if (method === "logs") {
       const [ afterId = 0 ] = params || [];
@@ -83,10 +88,77 @@ export function initializeMockBridge() {
         entries,
       });
     } else if (method === "start") {
-      pushLog("Backup scheduler requested start");
+      const [ name ] = params || [];
+      if (name) {
+        runningState[name] = true;
+        pushLog(`Backup scheduler requested start for ${name}`);
+      } else {
+        Object.keys(runningState).forEach(key => runningState[key] = true);
+        pushLog("Backup scheduler requested start for all storages");
+      }
       return "null";
     } else if (method === "stop") {
-      pushLog("Backup scheduler requested stop");
+      const [ name ] = params || [];
+      if (name) {
+        runningState[name] = false;
+        pushLog(`Backup scheduler requested stop for ${name}`);
+      } else {
+        Object.keys(runningState).forEach(key => runningState[key] = false);
+        pushLog("Backup scheduler requested stop for all storages");
+      }
+      return "null";
+    } else if (method === "complete") {
+      const [ name ] = params || [];
+      if (name) {
+        if (completingState[name]) {
+          return "null";
+        }
+        completingState[name] = true;
+        pushLog(`Complete backup requested for ${name}`);
+        const duration = 2000 + Math.random() * 5000;
+        setTimeout(() => {
+          delete completingState[name];
+          pushLog(`Complete backup finished for ${name}`);
+          if (runningState[name]) {
+            runningState[name] = false;
+            pushLog(`Scheduler set to stopped for ${name} after complete`);
+          }
+        }, duration);
+      } else {
+        Object.keys(runningState).forEach(storageName => {
+          if (!completingState[storageName]) {
+            completingState[storageName] = true;
+            pushLog(`Complete backup requested for ${storageName}`);
+            const duration = 2000 + Math.random() * 5000;
+            setTimeout(() => {
+              delete completingState[storageName];
+              pushLog(`Complete backup finished for ${storageName}`);
+              if (runningState[storageName]) {
+                runningState[storageName] = false;
+                pushLog(`Scheduler set to stopped for ${storageName} after complete`);
+              }
+            }, duration);
+          }
+        });
+      }
+      return "null";
+    } else if (method === "controlStatus") {
+      return JSON.stringify({
+        port: controlPort,
+        configuredPort: controlPort,
+        owner: controlOwner,
+        storages: Object.keys(runningState).map(name => ({
+          name,
+          running: !!runningState[name],
+          completing: !!completingState[name],
+        })),
+      });
+    } else if (method === "controlPort") {
+      const [ newPort ] = params || [];
+      if (Number.isInteger(newPort)) {
+        controlPort = newPort;
+        pushLog(`Control port changed to ${newPort}`);
+      }
       return "null";
     }
 
