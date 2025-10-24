@@ -40,7 +40,6 @@ import com.cromoteca.bfts.util.Factory;
 import com.cromoteca.bfts.util.FilePath;
 import com.cromoteca.bfts.util.Util;
 
-import java.io.Console;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
