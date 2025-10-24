@@ -21,6 +21,7 @@ import com.cromoteca.bfts.client.ClientScheduler;
 import com.cromoteca.bfts.client.Configuration;
 import com.cromoteca.bfts.client.Filesystem;
 import com.cromoteca.bfts.cryptography.Cryptographer;
+import com.cromoteca.bfts.gui.GuiLogManager;
 import com.cromoteca.bfts.model.Pair;
 import com.cromoteca.bfts.model.Source;
 import com.cromoteca.bfts.model.Stats;
@@ -248,6 +249,25 @@ public class ClientAPI {
     result.set("connectedStorages", connected);
 
     return result;
+  }
+
+  /**
+   * Returns collected log lines produced while the GUI is running.
+   *
+   * @return A JSON object containing log entries newer than the provided id
+   */
+  public ObjectNode logs() {
+    return logs(0L);
+  }
+
+  /**
+   * Returns collected log lines produced while the GUI is running.
+   *
+   * @param afterId Return only entries with id greater than this value
+   * @return A JSON object containing log entries
+   */
+  public ObjectNode logs(long afterId) {
+    return GuiLogManager.collect(mapper, afterId);
   }
 
   /**

@@ -4,7 +4,7 @@ import Storages from "./views/Storages.jsx";
 import { NotificationContext } from "./NotificationContext.jsx";
 
 function App() {
-  const [currentView, setCurrentView] = useState('storages');
+  const [currentView, setCurrentView] = useState('dashboard');
   const [notifications, setNotifications] = useState([]);
 
   // Add a notification (type: 'success' | 'error')
