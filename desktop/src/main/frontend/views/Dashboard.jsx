@@ -3,12 +3,6 @@ import { useNotification } from "../NotificationContext.jsx";
 
 const LOG_POLL_INTERVAL = 2000;
 const MAX_LOG_ENTRIES = 600;
-const ENCRYPTION_LABELS = {
-  NONE: "No encryption",
-  DATA: "Data only",
-  FULL: "Data and filenames",
-};
-
 export default function Dashboard() {
   const notify = useNotification();
   const [logs, setLogs] = useState([]);
@@ -195,7 +189,7 @@ export default function Dashboard() {
     }
   };
 
-  const handleCompleteAll = () => {
+  const handleFullBackupAll = () => {
     if (typeof window.invoke !== "function") {
       return;
     }
@@ -209,7 +203,7 @@ export default function Dashboard() {
         window.invoke("complete", [storage.name]);
       });
       if (notify) {
-        notify("Complete backup started for all storages");
+      notify("Full backup started for all storages");
       }
     } catch (err) {
       console.error("Failed to run complete backup for all storages", err);
@@ -261,7 +255,7 @@ export default function Dashboard() {
     }
   };
 
-  const handleCompleteStorage = (name) => {
+  const handleFullBackupStorage = (name) => {
     if (!name || typeof window.invoke !== "function" || completingAll) {
       return;
     }
@@ -270,7 +264,7 @@ export default function Dashboard() {
     try {
       window.invoke("complete", [name]);
       if (notify) {
-        notify(`Complete backup started for ${name}`);
+      notify(`Full backup started for ${name}`);
       }
     } catch (err) {
       console.error("Failed to run complete backup", err);
@@ -334,10 +328,10 @@ export default function Dashboard() {
         <button
           type="button"
           className="btn"
-          onClick={handleCompleteAll}
+          onClick={handleFullBackupAll}
           disabled={isCompletingAny || !noneRunning || connectedStorages.length === 0}
         >
-          Complete All
+          Full Backup
         </button>
         <button type="button" className="btn btn-secondary" onClick={handleClearLogs}>
           Clear Log
@@ -349,8 +343,6 @@ export default function Dashboard() {
           <thead>
             <tr>
               <th>Name</th>
-              <th>Path</th>
-              <th>Encryption</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -358,7 +350,7 @@ export default function Dashboard() {
           <tbody>
             {connectedStorages.length === 0 ? (
               <tr>
-                <td className="center-muted" colSpan={5}>
+                <td className="center-muted" colSpan={3}>
                   No connected storages found.
                 </td>
               </tr>
@@ -368,24 +360,21 @@ export default function Dashboard() {
                 const completingThis = completingAll
                   || !!completing[storage.name]
                   || !!statusMaps.completing[storage.name];
-                let statusLabel = running ? "Running" : "Stopped";
+                let statusLabel = running ? "Running" : "Idle";
                 let statusColor = running ? "#2ecc71" : "#e74c3c";
 
                 if (completingThis && !running) {
-                  statusLabel = "Completing…";
+                  statusLabel = "Full backup running…";
                   statusColor = "#f39c12";
                 }
-
-                const encryptionKey = storage.encryption ? storage.encryption.toUpperCase() : null;
-                const encryptionLabel = ENCRYPTION_LABELS[encryptionKey] || storage.encryption || "";
 
                 return (
                   <tr key={`${storage.name}-${idx}`}>
                     <td>{storage.name}</td>
-                    <td>{storage.path}</td>
-                    <td>{encryptionLabel}</td>
                     <td>
-                      <span style={{ color: statusColor, fontWeight: 600 }}>{statusLabel}</span>
+                      <span style={{ color: statusColor, fontWeight: 600 }}>
+                        {statusLabel}
+                      </span>
                     </td>
                     <td>
                       <div className="flex-center-gap" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
@@ -409,9 +398,9 @@ export default function Dashboard() {
                           type="button"
                           className="btn-small"
                           disabled={running || completingThis || isCompletingAny}
-                          onClick={() => handleCompleteStorage(storage.name)}
+                          onClick={() => handleFullBackupStorage(storage.name)}
                         >
-                          Complete
+                          Full Backup
                         </button>
                       </div>
                     </td>
