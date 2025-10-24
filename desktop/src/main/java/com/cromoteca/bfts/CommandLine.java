@@ -24,6 +24,9 @@ import com.cromoteca.bfts.client.ClientActivities;
 import com.cromoteca.bfts.client.ClientScheduler;
 import com.cromoteca.bfts.client.Configuration;
 import com.cromoteca.bfts.client.Filesystem;
+import com.cromoteca.bfts.control.ControlCoordinator;
+import com.cromoteca.bfts.control.ControlOperations;
+import com.cromoteca.bfts.control.ControlStatus;
 import com.cromoteca.bfts.cryptography.Cryptographer;
 import com.cromoteca.bfts.model.Pair;
 import com.cromoteca.bfts.model.Source;
@@ -73,8 +76,8 @@ import org.ocpsoft.prettytime.PrettyTime;
  *
  * <pre>java -jar bfts.jar</pre> shows a prompt;
  *
- * <pre>java -jar bfts.jar start true/false password</pre> runs the program in
- * fast/nice mode using the password when needed.
+ * <pre>java -jar bfts.jar start true/false</pre> runs the program in
+ * fast/nice mode using passwords stored in the configuration.
  *
  * @author Luciano Vernaschi (luciano at cromoteca.com)
  */
@@ -85,25 +88,70 @@ public class CommandLine {
   private static Shell shell;
   private static final Configuration CONFIG
       = new Configuration(Preferences.userNodeForPackage(CommandLine.class));
-  private char[] password;
+  private final ControlCoordinator controlCoordinator;
+
+  public CommandLine() {
+    controlCoordinator = new ControlCoordinator(new LocalOperations(),
+        CONFIG.getControlPort());
+  }
+
+  private class LocalOperations implements ControlOperations {
+    @Override
+    public void startAllLocal() {
+      startBackups(null);
+    }
+
+    @Override
+    public void startLocal(String name) {
+      startBackups(name);
+    }
+
+    @Override
+    public void stopAllLocal() {
+      stopBackups(null);
+    }
+
+    @Override
+    public void stopLocal(String name) {
+      stopBackups(name);
+    }
+
+    @Override
+    public void fastLocal() {
+      setFast(true);
+    }
+
+    @Override
+    public void niceLocal() {
+      setFast(false);
+    }
+
+    @Override
+    public ControlStatus status(int port) {
+      Map<String, Boolean> states = Arrays.stream(CONFIG.getConnectedStorages())
+          .collect(Collectors.toMap(name -> name,
+              name -> FACTORY.obtain(ClientScheduler.class, name) != null));
+      return new ControlStatus(true, port, states);
+    }
+  }
 
   public static void main(String[] args) throws Exception {
-    // example: java -jar bfts.jar start true mypassword
+    // example: java -jar bfts.jar start true
     if (args.length > 0 && "start".equals(args[0])) {
       // run the backup immediately
       CommandLine cl = new CommandLine();
 
-      if (args.length > 2) {
-        cl.password = args[2].toCharArray();
-      }
-
       cl.start();
 
       if (args.length > 1) {
-        cl.setFast(Boolean.parseBoolean(args[1]));
+        if (Boolean.parseBoolean(args[1])) {
+          cl.fast();
+        } else {
+          cl.nice();
+        }
       }
     } else if (args.length > 2 && "init".equals(args[0])) {
-      // example: java -jar bfts.jar init storagename /my/storage/path 8715 mypassword
+      // example: java -jar bfts.jar init storagename /my/storage/path 8715
       // create a storage
       CommandLine cl = new CommandLine();
 
@@ -111,13 +159,13 @@ public class CommandLine {
       String path = args[2];
       cl.init(name, path, false);
 
-      if (args.length > 4) {
-        cl.password = args[4].toCharArray();
-        cl.publish(name, Integer.parseInt(args[3]));
+      if (args.length > 3) {
+        int port = Integer.parseInt(args[3]);
+        cl.publish(name, port);
       }
 
       cl.quit();
-    } else {
+    } else if (args.length == 1 && ("start".equals(args[0]) || "cli".equals(args[0]))) {
       // use client name as prompt
       String name = CONFIG.getClientName();
 
@@ -127,12 +175,15 @@ public class CommandLine {
 
       shell = ShellFactory.createConsoleShell(name, "BFTS", new CommandLine());
       shell.commandLoop(); // does not return until exit command is used
+    } else {
+      GUI.main(args);
     }
   }
 
   @Command(description
       = "Quits the program (don't use EXIT as is causes thread locks")
   public void quit() {
+    controlCoordinator.close();
     System.exit(0);
   }
 
@@ -153,48 +204,17 @@ public class CommandLine {
     }
   }
 
-  /**
-   * Prompt for a password if it has not been stored previously.
-   */
-  private char[] askPassword() {
-    if (password != null) {
-      System.out.println("Using previously provided password");
-      return password;
-    }
-
+  private char[] askPassword(String prompt) {
     Console console = System.console();
 
     if (console == null) {
-      throw new IllegalStateException("Console is not available."
-          + " Use the 'password' command to store your password");
+      throw new IllegalStateException("Console is not available.");
     }
 
-    System.out.print("Enter password: ");
+    System.out.print(prompt);
     return console.readPassword();
   }
 
-  /**
-   * Note: a stored password will be used for both storage encryption and HTTP
-   * encryption. This is usually fine, since most users don't want to remember
-   * multiple passwords, but it is good to remember that every backup can have
-   * its own password and that the HTTP one is independent too.
-   */
-  @Command(description = "Prompts for password and keeps it in memory instead"
-      + " of asking for it every time")
-  public void password() {
-    password = askPassword();
-  }
-
-  @Command(description = "Keeps in memory a password passed as parameter,"
-      + " useful when console is not available")
-  public void password(@Param(name = "Password") String password) {
-    this.password = password.toCharArray();
-  }
-
-  @Command(description = "Forgets current password")
-  public void noPassword() {
-    password = null;
-  }
 
   @Command(description = "Initializes a new local storage")
   public void init(@Param(name = "Storage name") String name,
@@ -209,14 +229,16 @@ public class CommandLine {
 
   @Command(abbrev = "pub", description = "Publishes a local storage over HTTP")
   public void publish(@Param(name = "Storage name") String name,
-      @Param(name = "HTTP port") int port) throws GeneralSecurityException {
+      @Param(name = "HTTP port") int port)
+      throws GeneralSecurityException {
+    char[] passwordChars = askPassword("Transmission password: ");
     String path = CONFIG.getLocalStoragePath(name);
     LocalStorage storage = LocalStorage.get(FilePath.get(path));
     StorageConfiguration storageConfig = storage.getStorageConfiguration();
 
     // The HTTP connection needs a key pair to encrypt exchanged data
     Cryptographer crypto = new Cryptographer(storageConfig.getSalt(),
-        askPassword());
+        passwordChars);
     storage.addKeyPair(crypto.generateKeyPair());
     CONFIG.setLocalStoragePort(name, port);
     System.out.format("Storage %s published on port %d\n", name, port);
@@ -230,6 +252,17 @@ public class CommandLine {
     EncryptionType encryptionType = EncryptionType.fromString(encryption);
     CONFIG.setConnectedStoragePath(name, path);
     CONFIG.setConnectedStorageEncryptionType(name, encryptionType);
+
+    char[] transmissionChars = askPassword("Transmission password: ");
+    String transmissionPassword = new String(transmissionChars);
+    CONFIG.setConnectedStorageTransmissionPassword(name, transmissionPassword);
+
+    if (encryptionType != EncryptionType.NONE) {
+      char[] fileChars = askPassword("File encryption password: ");
+      String fileEncryptionPassword = new String(fileChars);
+      CONFIG.setConnectedStorageFileEncryptionPassword(name, fileEncryptionPassword);
+    }
+
     System.out.format("Prepared connection to storage %s as %s\n", name,
         CONFIG.getClientName());
   }
@@ -341,22 +374,24 @@ public class CommandLine {
           sourceName);
     } else {
       ca.sendFiles(source);
-      for (int n = 1; n > 0; n = ca.syncDeletions(source, true).size());
-      for (int n = 1; n > 0; n = ca.syncAdditions(source, true).size());
-      for (int n = 1; n > 0; n = ca.sendHashes(FileStatus.CURRENT,
-          source.getId()));
-      for (int n = 1; n > 0; n = ca.uploadChunks(FileStatus.CURRENT,
-          source.getId()));
+      while (!ca.syncDeletions(source, true).isEmpty()) {}
+      while (!ca.syncAdditions(source, true).isEmpty()) {}
+      while (ca.sendHashes(FileStatus.CURRENT, source.getId()) > 0) {}
+      while (ca.uploadChunks(FileStatus.CURRENT, source.getId()) > 0) {}
     }
   }
 
   @Command(abbrev = "start", description = "Starts all backups")
   public void start() {
-    start(null);
+    controlCoordinator.startAll();
   }
 
   @Command(abbrev = "start", description = "Starts a backup")
   public void start(@Param(name = "Storage name") String name) {
+    controlCoordinator.start(name);
+  }
+
+  private void startBackups(String name) {
     // start all HTTP servers, for use by remote clients
     Stream<String> stream = Arrays.stream(CONFIG.getLocalStorages());
 
@@ -424,15 +459,18 @@ public class CommandLine {
 
   @Command(abbrev = "stop", description = "Stops all backups")
   public void stop() {
-    stop(null);
+    controlCoordinator.stopAll();
   }
 
   @Command(abbrev = "stop", description = "Stops a backup")
   public void stop(@Param(name = "Storage name") String name) {
+    controlCoordinator.stop(name);
+  }
+
+  private void stopBackups(String name) {
     System.out.print("Stopping running backup... ");
 
     Stream<String> stream = Arrays.stream(CONFIG.getConnectedStorages());
-
     if (name != null) {
       stream = stream.filter(n -> name.equals(n));
     }
@@ -544,12 +582,12 @@ public class CommandLine {
 
   @Command(description = "Makes backup faster")
   public void fast() {
-    setFast(true);
+    controlCoordinator.fast();
   }
 
   @Command(description = "Makes backup slower")
   public void nice() {
-    setFast(false);
+    controlCoordinator.nice();
   }
 
   @Command(description = "Deletes unreferenced files")
@@ -591,20 +629,33 @@ public class CommandLine {
       // remote storage
       String host = split.getFirst();
       int port = split.getSecond();
-      storage = RemoteStorage.create(host, port, askPassword());
+      String transmissionPassword
+          = CONFIG.getConnectedStorageTransmissionPassword(storageName);
+      if (transmissionPassword == null || transmissionPassword.isEmpty()) {
+        throw new IllegalStateException("Transmission password not set for " + storageName);
+      }
+      storage = RemoteStorage.create(host, port, transmissionPassword.toCharArray());
       System.out.format("Connected to remote storage %s\n", path);
     }
 
     if (storage != null) {
       switch (encryptionType) {
         case DATA:
+          String dataPassword = CONFIG.getConnectedStorageFileEncryptionPassword(storageName);
+          if (dataPassword == null || dataPassword.isEmpty()) {
+            throw new IllegalStateException("File encryption password not set for " + storageName);
+          }
           storage = EncryptedStorages.getEncryptedStorage(storage,
-              askPassword(), false);
+              dataPassword.toCharArray(), false);
           System.out.format("Using data encryption on storage %s\n", path);
           break;
         case FULL:
+          String fullPassword = CONFIG.getConnectedStorageFileEncryptionPassword(storageName);
+          if (fullPassword == null || fullPassword.isEmpty()) {
+            throw new IllegalStateException("File encryption password not set for " + storageName);
+          }
           storage = EncryptedStorages.getEncryptedStorage(storage,
-              askPassword(), true);
+              fullPassword.toCharArray(), true);
           System.out.format("Using full encryption on storage %s\n", path);
           break;
         case NONE:
