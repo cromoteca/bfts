@@ -1,7 +1,11 @@
 package com.cromoteca.bfts;
 
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.browser.Browser;
@@ -13,6 +17,8 @@ import org.eclipse.swt.widgets.Shell;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cromoteca.bfts.gui.GuiLogManager;
+import com.cromoteca.bfts.gui.LogCollector;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -30,6 +36,9 @@ public class GUI {
   private final Browser browser;
   private final ClientAPI clientAPI;
   private final ObjectMapper mapper;
+  private final LogCollector logCollector;
+  private final PrintStream originalOut;
+  private final PrintStream originalErr;
 
   public GUI() {
     clientAPI = new ClientAPI();
@@ -45,6 +54,11 @@ public class GUI {
 
     LOGGER.info("Initializing GUI using browser engine: {}",
         browser.getBrowserType());
+
+    originalOut = System.out;
+    originalErr = System.err;
+    logCollector = new LogCollector(500);
+    installLogBridge();
 
     new BrowserFunction(browser, "openDirectoryPicker") {
       @Override
@@ -155,13 +169,98 @@ public class GUI {
   public void open() {
     shell.open();
 
-    while (!shell.isDisposed()) {
-      if (!display.readAndDispatch()) {
-        display.sleep();
+    try {
+      while (!shell.isDisposed()) {
+        if (!display.readAndDispatch()) {
+          display.sleep();
+        }
       }
+    } finally {
+      GuiLogManager.unregister(logCollector);
+      System.setOut(originalOut);
+      System.setErr(originalErr);
+      display.dispose();
+      System.exit(0); // Ensure the program ends when the GUI window closes
+    }
+  }
+
+  private void installLogBridge() {
+    GuiLogManager.register(logCollector);
+    OutputStream stdoutCollector = logCollector.createStdoutStream();
+    OutputStream stderrCollector = logCollector.createStderrStream();
+
+    System.setOut(createTeePrintStream(originalOut, stdoutCollector));
+    System.setErr(createTeePrintStream(originalErr, stderrCollector));
+  }
+
+  private PrintStream createTeePrintStream(PrintStream original,
+      OutputStream collectorStream) {
+    OutputStream tee = new DualOutputStream(
+        new PrintStreamAdapter(original),
+        collectorStream);
+
+    try {
+      return new PrintStream(tee, true, StandardCharsets.UTF_8.name());
+    } catch (UnsupportedEncodingException ex) {
+      LOGGER.warn("UTF-8 encoding not supported, fallback to default: {}",
+          ex.getMessage());
+      return new PrintStream(tee, true);
+    }
+  }
+
+  private static class PrintStreamAdapter extends OutputStream {
+    private final PrintStream delegate;
+
+    private PrintStreamAdapter(PrintStream delegate) {
+      this.delegate = delegate;
     }
 
-    display.dispose();
-    System.exit(0); // Ensure the program ends when the GUI window closes
+    @Override
+    public void write(int b) {
+      delegate.write(b);
+    }
+
+    @Override
+    public void write(byte[] b, int off, int len) {
+      delegate.write(b, off, len);
+    }
+
+    @Override
+    public void flush() {
+      delegate.flush();
+    }
+  }
+
+  private static class DualOutputStream extends OutputStream {
+    private final OutputStream first;
+    private final OutputStream second;
+
+    private DualOutputStream(OutputStream first, OutputStream second) {
+      this.first = first;
+      this.second = second;
+    }
+
+    @Override
+    public void write(int b) throws java.io.IOException {
+      first.write(b);
+      second.write(b);
+    }
+
+    @Override
+    public void write(byte[] b, int off, int len) throws java.io.IOException {
+      first.write(b, off, len);
+      second.write(b, off, len);
+    }
+
+    @Override
+    public void flush() throws java.io.IOException {
+      first.flush();
+      second.flush();
+    }
+
+    @Override
+    public void close() throws java.io.IOException {
+      flush();
+    }
   }
 }
