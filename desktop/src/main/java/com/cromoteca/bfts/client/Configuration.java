@@ -32,6 +32,8 @@ public class Configuration {
   private static final String LONG_OPERATION_DURATION
       = "longOperationDuration";
   private static final int DEFAULT_LONG_OPERATION_DURATION = 30;
+  private static final String CONTROL_PORT = "controlPort";
+  private static final int DEFAULT_CONTROL_PORT = 8615;
   private final Preferences p;
   // 32 random bytes (AES-256 key)
   private static final byte[] PASSWORD_KEY = new byte[] {
@@ -86,6 +88,14 @@ public class Configuration {
    */
   public int getLongOperationDuration() {
     return p.getInt(LONG_OPERATION_DURATION, DEFAULT_LONG_OPERATION_DURATION);
+  }
+
+  public int getControlPort() {
+    return p.getInt(CONTROL_PORT, DEFAULT_CONTROL_PORT);
+  }
+
+  public void setControlPort(int port) {
+    p.putInt(CONTROL_PORT, port);
   }
 
   private Preferences localStorageNode() {

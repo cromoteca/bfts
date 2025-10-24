@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNotification } from "../NotificationContext.jsx";
 import PasswordDialog from "../components/PasswordDialog.jsx";
 
@@ -21,11 +21,46 @@ export default function Storages() {
   });
   const [portInputs, setPortInputs] = useState({});
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [runningStatus, setRunningStatus] = useState({});
   const notify = useNotification();
 
-  useEffect(() => {
-    reloadStorages();
+  const fetchControlStatus = useCallback(() => {
+    if (typeof window.invoke !== "function") {
+      return;
+    }
+
+    try {
+      const response = window.invoke('controlStatus');
+      if (!response) {
+        return;
+      }
+      const parsed = JSON.parse(response);
+      const states = {};
+      if (parsed && Array.isArray(parsed.storages)) {
+        parsed.storages.forEach(storage => {
+          if (storage && storage.name) {
+            states[storage.name] = !!storage.running;
+          }
+        });
+      }
+      setRunningStatus(states);
+    } catch (err) {
+      console.error('Failed to fetch control status', err);
+    }
   }, []);
+
+  const reloadStorages = useCallback(() => {
+    const result = window.invoke('list');
+    try {
+      const parsed = JSON.parse(result);
+      setLocalStorages(parsed.localStorages || []);
+      setConnectedStorages(parsed.connectedStorages || []);
+    } catch {
+      setLocalStorages([]);
+      setConnectedStorages([]);
+    }
+    fetchControlStatus();
+  }, [fetchControlStatus]);
 
   const handlePickDirectory = async (e) => {
     const type = e.currentTarget.getAttribute('data-type');
@@ -64,18 +99,14 @@ export default function Storages() {
     }));
   };
 
-  // Helper to reload storages list
-  const reloadStorages = () => {
-    const result = window.invoke('list');
-    try {
-      const parsed = JSON.parse(result);
-      setLocalStorages(parsed.localStorages || []);
-      setConnectedStorages(parsed.connectedStorages || []);
-    } catch {
-      setLocalStorages([]);
-      setConnectedStorages([]);
-    }
-  };
+  useEffect(() => {
+    reloadStorages();
+  }, [reloadStorages]);
+
+  useEffect(() => {
+    const interval = setInterval(fetchControlStatus, 5000);
+    return () => clearInterval(interval);
+  }, [fetchControlStatus]);
 
   // Handler for adding a new local storage
   const handleAddLocalStorage = () => {
@@ -134,6 +165,43 @@ export default function Storages() {
     const result = window.invoke('publish', [name, port]);
     if (notify) notify(result);
     reloadStorages();
+  };
+
+  const handleStartStorage = (name) => {
+    if (!name) return;
+    try {
+      window.invoke('start', [name]);
+      if (notify) notify(`Started backup for ${name}`);
+    } catch (err) {
+      console.error('Failed to start backup', err);
+      if (notify) notify(`Failed to start backup for ${name}`, 'error');
+    } finally {
+      fetchControlStatus();
+    }
+  };
+
+  const handleStopStorage = (name) => {
+    if (!name) return;
+    try {
+      window.invoke('stop', [name]);
+      if (notify) notify(`Stopped backup for ${name}`);
+    } catch (err) {
+      console.error('Failed to stop backup', err);
+      if (notify) notify(`Failed to stop backup for ${name}`, 'error');
+    } finally {
+      fetchControlStatus();
+    }
+  };
+
+  const handleCompleteStorage = (name) => {
+    if (!name) return;
+    try {
+      window.invoke('complete', [name]);
+      if (notify) notify(`Complete backup started for ${name}`);
+    } catch (err) {
+      console.error('Failed to run complete backup', err);
+      if (notify) notify(`Failed to run complete backup for ${name}`, 'error');
+    }
   };
 
   return (
@@ -241,25 +309,62 @@ export default function Storages() {
             <th>Name</th>
             <th>Path</th>
             <th>Encryption</th>
-            <th />
+            <th>Status</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           {connectedStorages.length === 0 ? (
             <tr>
-              <td colSpan={4} className="center-muted">
+              <td colSpan={5} className="center-muted">
                 No connected storages found.
               </td>
             </tr>
           ) : (
-            connectedStorages.map((storage, idx) => (
-              <tr key={idx}>
-                <td>{storage.name}</td>
-                <td>{storage.path}</td>
-                <td>{ENCRYPTION_LABELS[storage.encryption] || storage.encryption}</td>
-                <td />
-              </tr>
-            ))
+            connectedStorages.map((storage, idx) => {
+              const running = !!runningStatus[storage.name];
+              const color = running ? '#2ecc71' : '#e74c3c';
+              return (
+                <tr key={idx}>
+                  <td>{storage.name}</td>
+                  <td>{storage.path}</td>
+                  <td>{ENCRYPTION_LABELS[storage.encryption] || storage.encryption}</td>
+                  <td>
+                    <span style={{ color, fontWeight: 600 }}>
+                      {running ? 'Running' : 'Stopped'}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="flex-center-gap" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <button
+                        type="button"
+                        className="btn-small"
+                        disabled={running}
+                        onClick={() => handleStartStorage(storage.name)}
+                      >
+                        Start
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-small"
+                        disabled={!running}
+                        onClick={() => handleStopStorage(storage.name)}
+                      >
+                        Stop
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-small"
+                        disabled={running}
+                        onClick={() => handleCompleteStorage(storage.name)}
+                      >
+                        Complete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })
           )}
           <tr>
             <td>
@@ -296,6 +401,7 @@ export default function Storages() {
                 <option value="FULL">Data and filenames</option>
               </select>
             </td>
+            <td className="center-muted">—</td>
             <td>
               <button 
                 type="button" 

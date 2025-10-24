@@ -20,6 +20,9 @@ import com.cromoteca.bfts.client.ClientActivities;
 import com.cromoteca.bfts.client.ClientScheduler;
 import com.cromoteca.bfts.client.Configuration;
 import com.cromoteca.bfts.client.Filesystem;
+import com.cromoteca.bfts.control.ControlCoordinator;
+import com.cromoteca.bfts.control.ControlOperations;
+import com.cromoteca.bfts.control.ControlStatus;
 import com.cromoteca.bfts.cryptography.Cryptographer;
 import com.cromoteca.bfts.gui.GuiLogManager;
 import com.cromoteca.bfts.model.Pair;
@@ -44,6 +47,7 @@ import com.cromoteca.bfts.util.Util;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -78,11 +82,57 @@ public class ClientAPI {
   private static final Configuration CONFIG
       = new Configuration(Preferences.userNodeForPackage(ClientAPI.class));
   private static final ObjectMapper mapper = new ObjectMapper();
+  private final ControlCoordinator controlCoordinator;
+
+  public ClientAPI() {
+    controlCoordinator = new ControlCoordinator(new LocalOperations(), CONFIG.getControlPort());
+  }
+
+  private class LocalOperations implements ControlOperations {
+    @Override
+    public void startAllLocal() {
+      startBackups(null);
+    }
+
+    @Override
+    public void startLocal(String name) {
+      startBackups(name);
+    }
+
+    @Override
+    public void stopAllLocal() {
+      stopBackups(null);
+    }
+
+    @Override
+    public void stopLocal(String name) {
+      stopBackups(name);
+    }
+
+    @Override
+    public void fastLocal() {
+      setFast(true);
+    }
+
+    @Override
+    public void niceLocal() {
+      setFast(false);
+    }
+
+    @Override
+    public ControlStatus status(int port) {
+      Map<String, Boolean> states = Arrays.stream(CONFIG.getConnectedStorages())
+          .collect(Collectors.toMap(name -> name,
+              name -> FACTORY.obtain(ClientScheduler.class, name) != null));
+      return new ControlStatus(true, port, states);
+    }
+  }
 
   /**
    * Quits the program.
    */
   public void quit() {
+    controlCoordinator.close();
     System.exit(0);
   }
 
@@ -252,6 +302,51 @@ public class ClientAPI {
   }
 
   /**
+   * Returns the configured control port and ownership information.
+   */
+  public ObjectNode controlStatus() {
+    ControlStatus status = controlCoordinator.status();
+    if (status == null) {
+      status = new ControlStatus(controlCoordinator.isLocalOwner(),
+          controlCoordinator.getPort(), Collections.emptyMap());
+    }
+
+    ObjectNode node = mapper.createObjectNode();
+    node.put("port", status.getPort());
+    node.put("owner", status.isOwner());
+    node.put("configuredPort", CONFIG.getControlPort());
+
+    ArrayNode storages = mapper.createArrayNode();
+    status.getStorageStates().forEach((name, running) -> {
+      ObjectNode entry = mapper.createObjectNode();
+      entry.put("name", name);
+      entry.put("running", running);
+      storages.add(entry);
+    });
+    node.set("storages", storages);
+    return node;
+  }
+
+  /**
+   * Returns the current control port.
+   */
+  public int controlPort() {
+    return controlCoordinator.getPort();
+  }
+
+  /**
+   * Sets the control port and reconfigures the coordinator.
+   */
+  public void controlPort(int port) {
+    if (port <= 0 || port > 65535) {
+      throw new IllegalArgumentException("Port must be between 1 and 65535");
+    }
+    CONFIG.setControlPort(port);
+    controlCoordinator.setPort(port);
+    System.out.format("Control port set to %d\n", port);
+  }
+
+  /**
    * Returns collected log lines produced while the GUI is running.
    *
    * @return A JSON object containing log entries newer than the provided id
@@ -335,7 +430,7 @@ public class ClientAPI {
    * Starts all backups.
    */
   public void start() {
-    start(null);
+    controlCoordinator.startAll();
   }
 
   /**
@@ -344,6 +439,14 @@ public class ClientAPI {
    * @param name Storage name
    */
   public void start(String name) {
+    if (name == null) {
+      controlCoordinator.startAll();
+    } else {
+      controlCoordinator.start(name);
+    }
+  }
+
+  private void startBackups(String name) {
     // start all HTTP servers, for use by remote clients
     Stream<String> stream = Arrays.stream(CONFIG.getLocalStorages());
 
@@ -413,7 +516,7 @@ public class ClientAPI {
    * Stops all backups.
    */
   public void stop() {
-    stop(null);
+    controlCoordinator.stopAll();
   }
 
   /**
@@ -422,6 +525,14 @@ public class ClientAPI {
    * @param name Storage name
    */
   public void stop(String name) {
+    if (name == null) {
+      controlCoordinator.stopAll();
+    } else {
+      controlCoordinator.stop(name);
+    }
+  }
+
+  private void stopBackups(String name) {
     System.out.print("Stopping running backup... ");
 
     Stream<String> stream = Arrays.stream(CONFIG.getConnectedStorages());
@@ -553,14 +664,14 @@ public class ClientAPI {
    * Makes backup faster.
    */
   public void fast() {
-    setFast(true);
+    controlCoordinator.fast();
   }
 
   /**
    * Makes backup slower.
    */
   public void nice() {
-    setFast(false);
+    controlCoordinator.nice();
   }
 
   /**

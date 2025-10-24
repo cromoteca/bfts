@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from "react";
 import Dashboard from "./views/Dashboard.jsx";
 import Storages from "./views/Storages.jsx";
+import Configuration from "./views/Configuration.jsx";
 import { NotificationContext } from "./NotificationContext.jsx";
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
   const menuItems = [
     { key: 'dashboard', label: 'Dashboard' },
     { key: 'storages', label: 'Storages' },
+    { key: 'configuration', label: 'Configuration' },
   ];
 
   return (
@@ -54,6 +56,7 @@ function App() {
       <main>
         {currentView === 'dashboard' && <Dashboard />}
         {currentView === 'storages' && <Storages />}
+        {currentView === 'configuration' && <Configuration />}
       </main>
       <footer>
         &copy; {new Date().getFullYear()} BFTS. All rights reserved.
