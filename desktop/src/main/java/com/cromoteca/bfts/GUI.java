@@ -1,11 +1,16 @@
 package com.cromoteca.bfts;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.browser.Browser;
@@ -39,6 +44,7 @@ public class GUI {
   private final LogCollector logCollector;
   private final PrintStream originalOut;
   private final PrintStream originalErr;
+  private Path extractedUiDir;
 
   public GUI() {
     clientAPI = new ClientAPI();
@@ -49,8 +55,13 @@ public class GUI {
     shell.setLayout(new FillLayout(SWT.VERTICAL));
 
     browser = new Browser(shell, SWT.NONE);
-    String url = GUI.class.getResource("/ui/index.html").toExternalForm();
-    browser.setUrl(url);
+    try {
+      String url = resolveUiUrl();
+      browser.setUrl(url);
+    } catch (IOException ex) {
+      LOGGER.error("Unable to load UI resources", ex);
+      throw new IllegalStateException("Unable to load UI resources", ex);
+    }
 
     LOGGER.info("Initializing GUI using browser engine: {}",
         browser.getBrowserType());
@@ -179,9 +190,76 @@ public class GUI {
       GuiLogManager.unregister(logCollector);
       System.setOut(originalOut);
       System.setErr(originalErr);
+      cleanupExtractedUi();
       display.dispose();
       System.exit(0); // Ensure the program ends when the GUI window closes
     }
+  }
+
+  private String resolveUiUrl() throws IOException {
+    java.net.URL resource = GUI.class.getResource("/ui/index.html");
+
+    if (resource == null) {
+      throw new IOException("UI index.html resource not found");
+    }
+
+    String protocol = resource.getProtocol();
+
+    if ("jar".equalsIgnoreCase(protocol)) {
+      if (extractedUiDir == null) {
+        extractedUiDir = extractUiResources();
+      }
+
+      return extractedUiDir.resolve("index.html").toUri().toString();
+    }
+
+    return resource.toExternalForm();
+  }
+
+  private Path extractUiResources() throws IOException {
+    Path tempDir = Files.createTempDirectory("bfts-ui-");
+    tempDir.toFile().deleteOnExit();
+
+    copyResource("ui/index.html", tempDir.resolve("index.html"));
+    copyResource("ui/index.js", tempDir.resolve("index.js"));
+
+    Path assetsDir = tempDir.resolve("assets");
+    Files.createDirectories(assetsDir);
+    copyResource("ui/assets/style.css", assetsDir.resolve("style.css"));
+    copyResource("ui/assets/icon.png", assetsDir.resolve("icon.png"));
+
+    return tempDir;
+  }
+
+  private void copyResource(String resourcePath, Path target) throws IOException {
+    try (InputStream is = GUI.class.getResourceAsStream("/" + resourcePath)) {
+      if (is == null) {
+        throw new IOException("Resource " + resourcePath + " not found");
+      }
+      Files.copy(is, target, StandardCopyOption.REPLACE_EXISTING);
+    }
+  }
+
+  private void cleanupExtractedUi() {
+    if (extractedUiDir == null) {
+      return;
+    }
+
+    try {
+      Files.walk(extractedUiDir)
+          .sorted((a, b) -> b.compareTo(a))
+          .forEach(path -> {
+            try {
+              Files.deleteIfExists(path);
+            } catch (IOException ex) {
+              LOGGER.debug("Unable to delete temp UI file {}", path, ex);
+            }
+          });
+    } catch (IOException ex) {
+      LOGGER.debug("Unable to clean up temporary UI directory", ex);
+    }
+
+    extractedUiDir = null;
   }
 
   private void installLogBridge() {

@@ -381,6 +381,34 @@ public class ClientAPI {
   }
 
   /**
+   * Returns detailed source information for a storage.
+   *
+   * @param storageName Connection name
+   * @return A JSON array containing source entries
+   */
+  public ArrayNode sources(String storageName) {
+    Storage storage = getStorage(storageName);
+    List<Source> sources = storage.selectSources(CONFIG.getClientName());
+    ArrayNode array = mapper.createArrayNode();
+
+    for (Source source : sources) {
+      ObjectNode node = mapper.createObjectNode();
+
+      if (source.getName() != null) {
+        node.put("name", source.getName());
+      } else {
+        node.putNull("name");
+      }
+
+      node.put("path", source.getRootPath());
+      node.put("priority", source.getPriority());
+      array.add(node);
+    }
+
+    return array;
+  }
+
+  /**
    * Make a complete backup of all sources.
    *
    * @param storageName Storage name

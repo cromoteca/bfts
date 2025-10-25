@@ -165,7 +165,7 @@ public class CommandLine {
       }
 
       cl.quit();
-    } else if (args.length == 1 && ("start".equals(args[0]) || "cli".equals(args[0]))) {
+    } else if (args.length > 0 && ("shell".equals(args[0]) || "cli".equals(args[0]))) {
       // use client name as prompt
       String name = CONFIG.getClientName();
 

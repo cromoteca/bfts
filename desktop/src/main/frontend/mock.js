@@ -26,6 +26,16 @@ export function initializeMockBridge() {
       fileEncryptionPassword: "files777" 
     }
   ];
+  const storageSources = {
+    "Mock Connected": [
+      { name: "documents", path: "/Users/demo/Documents", priority: 10 },
+      { name: "photos", path: "/Users/demo/Pictures", priority: 15 }
+    ],
+    "Another Connected": [
+      { name: "projects", path: "/mnt/mock/projects", priority: 5 }
+    ],
+    "Third Connected": []
+  };
   const logEntries = [];
   let lastLogId = 0;
   let controlPort = 8615;
@@ -47,6 +57,13 @@ export function initializeMockBridge() {
   };
 
   pushLog("Mock bridge initialized");
+
+  const ensureSources = (storageName) => {
+    if (!storageSources[storageName]) {
+      storageSources[storageName] = [];
+    }
+    return storageSources[storageName];
+  };
 
   window.invoke = (method, params) => {
     if (method === "list") {
@@ -77,7 +94,27 @@ export function initializeMockBridge() {
       });
       pushLog(`Connected to storage ${name} at ${path}`);
       runningState[name] = false;
+      ensureSources(name);
       return `Connected to storage ${name} at ${path}`;
+    } else if (method === "add") {
+      const [ storageName, name, path ] = params || [];
+      const sources = ensureSources(storageName);
+      sources.push({ name, path, priority: 10 });
+      pushLog(`Added source ${name} to storage ${storageName}`);
+      return `Added source ${name} to storage ${storageName}`;
+    } else if (method === "sources") {
+      const [ storageName ] = params || [];
+      const sources = ensureSources(storageName).map(source => ({ ...source }));
+      return JSON.stringify(sources);
+    } else if (method === "priority") {
+      const [ storageName, name, priority ] = params || [];
+      const sources = ensureSources(storageName);
+      const target = sources.find(source => source.name === name);
+      if (target) {
+        target.priority = priority;
+      }
+      pushLog(`Priority for ${name} set to ${priority}`);
+      return "null";
     } else if (method === "logs") {
       const [ afterId = 0 ] = params || [];
       const entries = logEntries.filter(entry => entry.id > afterId);
