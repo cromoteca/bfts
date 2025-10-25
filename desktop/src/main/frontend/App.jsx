@@ -2,6 +2,7 @@ import React, { useState, useCallback } from "react";
 import Dashboard from "./views/Dashboard.jsx";
 import Storages from "./views/Storages.jsx";
 import Configuration from "./views/Configuration.jsx";
+import Directories from "./views/Directories.jsx";
 import { NotificationContext } from "./NotificationContext.jsx";
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
   const menuItems = [
     { key: 'dashboard', label: 'Dashboard' },
     { key: 'storages', label: 'Storages' },
+    { key: 'directories', label: 'Directories' },
     { key: 'configuration', label: 'Configuration' },
   ];
 
@@ -56,6 +58,7 @@ function App() {
       <main>
         {currentView === 'dashboard' && <Dashboard />}
         {currentView === 'storages' && <Storages />}
+        {currentView === 'directories' && <Directories />}
         {currentView === 'configuration' && <Configuration />}
       </main>
       <footer>
