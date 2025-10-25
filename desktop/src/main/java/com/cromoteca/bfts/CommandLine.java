@@ -267,6 +267,67 @@ public class CommandLine {
         CONFIG.getClientName());
   }
 
+  @Command(description
+      = "Walks all connections and prompts for any missing passwords")
+  public void passwords() {
+    String[] storages = CONFIG.getConnectedStorages();
+
+    if (storages.length == 0) {
+      System.out.println("No connected storages configured");
+      return;
+    }
+
+    boolean storedAny = false;
+
+    for (String storageName : storages) {
+      if (ensureTransmissionPassword(storageName)) {
+        System.out.format("Transmission password stored for %s\n", storageName);
+        storedAny = true;
+      }
+
+      EncryptionType encryptionType
+          = CONFIG.getConnectedStorageEncryptionType(storageName);
+
+      if (encryptionType != EncryptionType.NONE
+          && ensureFileEncryptionPassword(storageName)) {
+        System.out.format("File encryption password stored for %s\n", storageName);
+        storedAny = true;
+      }
+    }
+
+    if (!storedAny) {
+      System.out.println("All passwords already stored");
+    }
+  }
+
+  private boolean ensureTransmissionPassword(String storageName) {
+    String current = CONFIG.getConnectedStorageTransmissionPassword(storageName);
+
+    if (current != null && !current.isEmpty()) {
+      return false;
+    }
+
+    char[] transmissionChars = askPassword("Transmission password for "
+        + storageName + ": ");
+    CONFIG.setConnectedStorageTransmissionPassword(storageName,
+        new String(transmissionChars));
+    return true;
+  }
+
+  private boolean ensureFileEncryptionPassword(String storageName) {
+    String current = CONFIG.getConnectedStorageFileEncryptionPassword(storageName);
+
+    if (current != null && !current.isEmpty()) {
+      return false;
+    }
+
+    char[] fileChars = askPassword("File encryption password for "
+        + storageName + ": ");
+    CONFIG.setConnectedStorageFileEncryptionPassword(storageName,
+        new String(fileChars));
+    return true;
+  }
+
   @Command(description = "Adds a backup source to a storage")
   public void add(@Param(name = "Connection name") String storageName,
       @Param(name = "Source name") String name,
