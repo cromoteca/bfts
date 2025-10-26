@@ -102,7 +102,7 @@ public class ControlCoordinator implements Closeable {
       if (status == null) {
         return new ControlStatus(false, port, Collections.emptyMap());
       }
-      return status;
+      return new ControlStatus(false, status.getPort(), status.getStorageStates());
     }
   }
 
