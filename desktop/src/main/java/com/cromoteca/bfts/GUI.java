@@ -5,12 +5,14 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.browser.Browser;
@@ -106,10 +108,30 @@ public class GUI {
           }
 
           String methodName = String.valueOf(args[0]);
-          String paramsJson = args.length == 1 ? null : String.valueOf(args[1]);
-          Object[] arr = (paramsJson == null || paramsJson.equals("null")
-              || paramsJson.equals("[]")) ? new Object[0]
-              : mapper.readValue(paramsJson, Object[].class);
+          Object rawParams = args.length == 1 ? null : args[1];
+          Object[] arr;
+          if (rawParams == null) {
+            arr = new Object[0];
+          } else if (rawParams instanceof Object[]) {
+            arr = (Object[]) rawParams;
+          } else if (rawParams instanceof CharSequence) {
+            String paramsJson = rawParams.toString();
+            if (paramsJson.isEmpty() || "null".equals(paramsJson)
+                || "[]".equals(paramsJson)) {
+              arr = new Object[0];
+            } else {
+              arr = mapper.readValue(paramsJson, Object[].class);
+            }
+          } else if (rawParams.getClass().isArray()) {
+            int length = Array.getLength(rawParams);
+            Object[] copy = new Object[length];
+            for (int i = 0; i < length; i++) {
+              copy[i] = Array.get(rawParams, i);
+            }
+            arr = copy;
+          } else {
+            arr = new Object[] { rawParams };
+          }
           Method[] methods = clientAPI.getClass().getMethods();
 
           for (Method m : methods) {
@@ -138,7 +160,7 @@ public class GUI {
           }
 
           throw new NoSuchMethodException("No such method: " + methodName
-              + " with parameters: " + paramsJson);
+              + " with parameters: " + Arrays.toString(arr));
         } catch (Exception ex) {
           Throwable cause = ex instanceof InvocationTargetException
               && ex.getCause() != null ? ex.getCause() : ex;
