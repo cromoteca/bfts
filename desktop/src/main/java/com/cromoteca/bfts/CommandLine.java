@@ -737,7 +737,7 @@ public class CommandLine {
     Matcher m = HOST_PORT.matcher(s);
 
     if (m.matches()) {
-      return new Pair<>(m.group(1), Integer.parseInt(m.group(2)));
+      return new Pair<>(m.group(1), Integer.valueOf(m.group(2)));
     } else {
       return null;
     }
