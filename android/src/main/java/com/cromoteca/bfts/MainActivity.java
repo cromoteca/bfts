@@ -16,7 +16,6 @@
  */
 package com.cromoteca.bfts;
 
-import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.ComponentName;
@@ -52,21 +51,24 @@ public class MainActivity extends Activity {
     Logger log = LoggerFactory.getLogger(MainActivity.class);
 
     private ForegroundBackupService backupService;
+    private Button toggleButton;
+    private boolean bound;
 
     private final ServiceConnection mConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
             log.debug("Connecting to service");
             backupService = ((ForegroundBackupService.LocalBinder) iBinder).getInstance();
+            bound = true;
+            updateToggleButton();
         }
 
         @Override
         public void onServiceDisconnected(ComponentName componentName) {
             log.debug("Disconnecting from service");
-            if (backupService != null) {
-                backupService.unbindService(this);
-                backupService = null;
-            }
+            backupService = null;
+            bound = false;
+            updateToggleButton();
         }
     };
 
@@ -87,30 +89,19 @@ public class MainActivity extends Activity {
             Intent intent = new Intent(this, SettingsActivity.class);
             startActivity(intent);
         });
-
-        Button startButton = findViewById(R.id.startButton);
-        startButton.setOnClickListener(e -> {
-            log.debug("Starting foreground service");
-            Intent serviceIntent = new Intent(this, ForegroundBackupService.class);
-            startForegroundService(serviceIntent);
-            bindService(serviceIntent, mConnection, Context.BIND_AUTO_CREATE);
-            log.debug("Foreground service started");
-        });
-
-        Button stopButton = findViewById(R.id.stopButton);
-        stopButton.setOnClickListener(e -> {
-            log.debug("Stopping foreground service");
-            Intent serviceIntent = new Intent(this, ForegroundBackupService.class);
-            stopService(serviceIntent);
-            log.debug("Foreground service stopped");
-
-            if (backupService != null) {
-                log.debug("Stopping backup scheduler");
-                backupService.stopScheduler();
-                unbindService(mConnection);
-                backupService = null;
+        toggleButton = findViewById(R.id.toggleButton);
+        toggleButton.setOnClickListener(e -> {
+            ConfigBean config = new ConfigBean(PreferenceManager
+                    .getDefaultSharedPreferences(MainActivity.this));
+            boolean active = config.isServiceActive();
+            if (active) {
+                stopBackupService();
+            } else {
+                startBackupService();
             }
+            updateToggleButton();
         });
+        updateToggleButton();
     }
 
     @Override
@@ -118,12 +109,16 @@ public class MainActivity extends Activity {
         super.onStart();
         Intent serviceIntent = new Intent(this, ForegroundBackupService.class);
         bindService(serviceIntent, mConnection, 0);
+        updateToggleButton();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        unbindService(mConnection);
+        if (bound) {
+            unbindService(mConnection);
+            bound = false;
+        }
         backupService = null;
     }
 
@@ -131,6 +126,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+
+        updateToggleButton();
 
         TextView statsText = findViewById(R.id.statsText);
         statsText.setText("Waiting for server status...");
@@ -212,6 +209,52 @@ public class MainActivity extends Activity {
                 log.info("Storage access permission granted: " +
                         (grantResults[0] == PackageManager.PERMISSION_GRANTED));
                 break;
+        }
+    }
+
+    private void startBackupService() {
+        log.debug("Starting foreground service");
+        Intent serviceIntent = new Intent(this, ForegroundBackupService.class);
+        startForegroundService(serviceIntent);
+        if (!bound) {
+            bindService(serviceIntent, mConnection, Context.BIND_AUTO_CREATE);
+        }
+        log.debug("Foreground service started");
+    }
+
+    private void stopBackupService() {
+        log.debug("Stopping foreground service");
+        Intent serviceIntent = new Intent(this, ForegroundBackupService.class);
+        stopService(serviceIntent);
+        log.debug("Foreground service stopped");
+
+        if (backupService != null) {
+            log.debug("Stopping backup scheduler");
+            backupService.stopScheduler();
+        }
+        if (bound) {
+            unbindService(mConnection);
+            bound = false;
+        }
+        backupService = null;
+
+        ConfigBean config = new ConfigBean(PreferenceManager
+                .getDefaultSharedPreferences(this));
+        config.setServiceActive(false);
+    }
+
+    private void updateToggleButton() {
+        if (toggleButton == null) {
+            return;
+        }
+        ConfigBean config = new ConfigBean(PreferenceManager
+                .getDefaultSharedPreferences(this));
+        setToggleButtonText(config.isServiceActive());
+    }
+
+    private void setToggleButtonText(boolean active) {
+        if (toggleButton != null) {
+            toggleButton.setText(active ? R.string.stop_backup : R.string.start_backup);
         }
     }
 }
