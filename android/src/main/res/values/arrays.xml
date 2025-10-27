@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="encryption_type_entries">
+        <item>Data only</item>
+        <item>Full (data and metadata)</item>
+    </string-array>
+    <string-array name="encryption_type_values">
+        <item>DATA</item>
+        <item>FULL</item>
+    </string-array>
+</resources>

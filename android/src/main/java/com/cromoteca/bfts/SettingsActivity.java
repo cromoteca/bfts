@@ -127,6 +127,7 @@ public class SettingsActivity extends PreferenceActivity {
             bindPreferenceSummaryToValue(findPreference("clientName"));
             bindPreferenceSummaryToValue(findPreference("serverName"));
             bindPreferenceSummaryToValue(findPreference("serverPort"));
+            bindPreferenceSummaryToValue(findPreference("encryptionType"));
         }
 
         @Override

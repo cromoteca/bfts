@@ -20,6 +20,8 @@ import android.content.SharedPreferences;
 import android.databinding.BaseObservable;
 import android.databinding.Bindable;
 
+import com.cromoteca.bfts.storage.EncryptionType;
+
 public class ConfigBean extends BaseObservable {
     public static final String SHARED_PREFERENCES_NAME = "BackupPreferences";
     private final SharedPreferences prefs;
@@ -43,11 +45,41 @@ public class ConfigBean extends BaseObservable {
 
     @Bindable
     public String getPassword() {
-        return prefs.getString("password", "");
+        return getTransmissionPassword();
     }
 
     public void setPassword(String password) {
-        prefs.edit().putString("password", password).commit();
+        setTransmissionPassword(password);
+    }
+
+    @Bindable
+    public String getTransmissionPassword() {
+        String legacy = prefs.getString("password", "");
+        return prefs.getString("transmissionPassword", legacy);
+    }
+
+    public void setTransmissionPassword(String password) {
+        prefs.edit().putString("transmissionPassword", password).commit();
+    }
+
+    @Bindable
+    public String getDataPassword() {
+        String legacy = prefs.getString("password", "");
+        return prefs.getString("dataPassword", legacy);
+    }
+
+    public void setDataPassword(String password) {
+        prefs.edit().putString("dataPassword", password).commit();
+    }
+
+    @Bindable
+    public EncryptionType getEncryptionType() {
+        String stored = prefs.getString("encryptionType", EncryptionType.DATA.name());
+        return EncryptionType.fromString(stored);
+    }
+
+    public void setEncryptionType(EncryptionType type) {
+        prefs.edit().putString("encryptionType", type.name()).commit();
     }
 
     @Bindable
@@ -92,5 +124,13 @@ public class ConfigBean extends BaseObservable {
 
     public void setLastTrashCollectionDay(long lastTrashCollectionDay) {
         prefs.edit().putLong("lastTrashCollectionDay", lastTrashCollectionDay).commit();
+    }
+
+    public boolean isServiceActive() {
+        return prefs.getBoolean("serviceActive", false);
+    }
+
+    public void setServiceActive(boolean active) {
+        prefs.edit().putBoolean("serviceActive", active).commit();
     }
 }

@@ -11,10 +11,24 @@
 
     <EditTextPreference
         android:inputType="textPassword"
-        android:key="password"
+        android:key="transmissionPassword"
         android:maxLines="1"
         android:selectAllOnFocus="true"
-        android:title="Password" />
+        android:title="Transmission Password" />
+
+    <EditTextPreference
+        android:inputType="textPassword"
+        android:key="dataPassword"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:title="Data Encryption Password" />
+
+    <ListPreference
+        android:defaultValue="DATA"
+        android:entries="@array/encryption_type_entries"
+        android:entryValues="@array/encryption_type_values"
+        android:key="encryptionType"
+        android:title="Data Encryption Mode" />
 
     <EditTextPreference
         android:inputType="textNoSuggestions"

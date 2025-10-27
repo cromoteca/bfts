@@ -34,6 +34,7 @@ import android.widget.TextView;
 
 import com.cromoteca.bfts.model.Stats;
 import com.cromoteca.bfts.storage.EncryptedStorages;
+import com.cromoteca.bfts.storage.EncryptionType;
 import com.cromoteca.bfts.storage.RemoteStorage;
 import com.cromoteca.bfts.storage.Storage;
 
@@ -142,10 +143,29 @@ public class MainActivity extends Activity {
                 try {
                     ConfigBean config = new ConfigBean(PreferenceManager
                             .getDefaultSharedPreferences(MainActivity.this));
-                    char[] password = config.getPassword().toCharArray();
+                    char[] transmissionPassword = config.getTransmissionPassword().toCharArray();
+                    if (transmissionPassword.length == 0) {
+                        throw new IllegalStateException("Transmission password not configured");
+                    }
                     Storage storage = RemoteStorage.create(config.getServerName(),
-                            config.getServerPort(), password);
-                    storage = EncryptedStorages.getEncryptedStorage(storage, password,false);
+                            config.getServerPort(), transmissionPassword);
+
+                    EncryptionType encryptionType = config.getEncryptionType();
+                    switch (encryptionType) {
+                        case DATA:
+                        case FULL:
+                            char[] dataPassword = config.getDataPassword().toCharArray();
+                            if (dataPassword.length == 0) {
+                                throw new IllegalStateException("Data encryption password not configured");
+                            }
+                            boolean encryptStrings = encryptionType == EncryptionType.FULL;
+                            storage = EncryptedStorages.getEncryptedStorage(storage, dataPassword,
+                                    encryptStrings);
+                            break;
+                        case NONE:
+                            // Ignore NONE as per GUI behaviour
+                            break;
+                    }
                     Stats stats = storage.getClientStats(config.getClientName());
                     DateFormat dateFormat = SimpleDateFormat.getDateTimeInstance(
                             SimpleDateFormat.MEDIUM, SimpleDateFormat.MEDIUM);
@@ -165,7 +185,9 @@ public class MainActivity extends Activity {
                     }
                 } catch (Throwable t) {
                     log.error(null, t);
-                    status = "Backup server is unreachable at the moment";
+                    status = t.getMessage() == null
+                            ? "Backup server is unreachable at the moment"
+                            : t.getMessage();
                 }
 
                 return status;
