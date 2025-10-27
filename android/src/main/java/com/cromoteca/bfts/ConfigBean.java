@@ -100,24 +100,6 @@ public class ConfigBean extends BaseObservable {
         prefs.edit().putString("serverPort", Integer.toString(serverPort)).commit();
     }
 
-    @Bindable
-    public boolean isRequireCharging() {
-        return prefs.getBoolean("requireCharging", true);
-    }
-
-    public void setRequireCharging(boolean requireCharging) {
-        prefs.edit().putBoolean("requireCharging", requireCharging).commit();
-    }
-
-    @Bindable
-    public boolean isRequireWiFi() {
-        return prefs.getBoolean("requireWiFi", true);
-    }
-
-    public void setRequireWiFi(boolean requireWiFi) {
-        prefs.edit().putBoolean("requireWiFi", requireWiFi).commit();
-    }
-
     public long getLastTrashCollectionDay() {
         return prefs.getLong("lastTrashCollectionDay", 0);
     }

@@ -45,14 +45,4 @@
         android:selectAllOnFocus="true"
         android:title="Server Port" />
 
-    <SwitchPreference
-        android:defaultValue="false"
-        android:key="requireCharging"
-        android:title="Backup only while charging" />
-
-    <SwitchPreference
-        android:defaultValue="true"
-        android:key="requireWiFi"
-        android:title="Backup only while connected to Wi-Fi" />
-
 </PreferenceScreen>
