@@ -31,7 +31,8 @@
         android:title="Data Encryption Mode" />
 
     <EditTextPreference
-        android:inputType="textNoSuggestions"
+        android:importantForAutofill="no"
+        android:inputType="textNoSuggestions|textUri"
         android:key="serverName"
         android:maxLines="1"
         android:selectAllOnFocus="true"

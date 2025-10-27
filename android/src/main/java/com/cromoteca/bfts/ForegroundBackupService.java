@@ -115,17 +115,25 @@ public class ForegroundBackupService extends Service {
         }
 
         Intent notificationIntent = new Intent(this, MainActivity.class);
+        int pendingIntentFlags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                ? PendingIntent.FLAG_IMMUTABLE : 0;
         PendingIntent pendingIntent =
-                PendingIntent.getActivity(this, 0, notificationIntent, 0);
+                PendingIntent.getActivity(this, 0, notificationIntent, pendingIntentFlags);
 
-        Notification notification =
+        Notification.Builder builder =
                 new Notification.Builder(this, "8715")
                         .setContentTitle("Backup running")
                         .setContentText("Backup runs in the background")
                         .setSmallIcon(R.drawable.ic_launcher_foreground)
                         .setContentIntent(pendingIntent)
-                        .setTicker("BFTS Ticker")
-                        .build();
+                        .setOngoing(true)
+                        .setTicker("BFTS Ticker");
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
+        }
+
+        Notification notification = builder.build();
 
         startForeground(1, notification);
     }

@@ -16,20 +16,28 @@
  */
 package com.cromoteca.bfts;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.preference.PreferenceManager;
+import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.cromoteca.bfts.model.Stats;
 import com.cromoteca.bfts.storage.EncryptedStorages;
@@ -48,6 +56,7 @@ import java.util.Map;
 
 public class MainActivity extends Activity {
     private static final int STORAGE_WRITE_PERMISSION_REQUEST = 1;
+    private static final int MANAGE_STORAGE_PERMISSION_REQUEST = 2;
     Logger log = LoggerFactory.getLogger(MainActivity.class);
 
     private ForegroundBackupService backupService;
@@ -77,12 +86,8 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_main);
-
-        if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
-                    STORAGE_WRITE_PERMISSION_REQUEST);
-        }
+        ensureStorageAccess(false);
+        ensureBatteryOptimizationExemption(false);
 
         Button settingsButton = findViewById(R.id.settingsButton);
         settingsButton.setOnClickListener(e -> {
@@ -127,6 +132,8 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
 
+        ensureStorageAccess(false);
+        ensureBatteryOptimizationExemption(false);
         updateToggleButton();
 
         TextView statsText = findViewById(R.id.statsText);
@@ -206,13 +213,95 @@ public class MainActivity extends Activity {
                                            @NonNull int[] grantResults) {
         switch (requestCode) {
             case STORAGE_WRITE_PERMISSION_REQUEST:
-                log.info("Storage access permission granted: " +
-                        (grantResults[0] == PackageManager.PERMISSION_GRANTED));
+                boolean granted = grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+                log.info("Storage access permission granted: " + granted);
+                if (!granted) {
+                    Toast.makeText(this, R.string.storage_permission_required, Toast.LENGTH_LONG).show();
+                }
                 break;
         }
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == MANAGE_STORAGE_PERMISSION_REQUEST) {
+            if (!ensureStorageAccess(false)) {
+                Toast.makeText(this, R.string.storage_permission_required, Toast.LENGTH_LONG).show();
+            } else {
+                log.debug("Manage all files access granted");
+            }
+            updateToggleButton();
+        }
+    }
+
+    private boolean ensureStorageAccess(boolean promptIfNeeded) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            boolean hasAllFilesAccess = Environment.isExternalStorageManager();
+            if (!hasAllFilesAccess && promptIfNeeded) {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                intent.setData(Uri.parse("package:" + getPackageName()));
+                try {
+                    startActivityForResult(intent, MANAGE_STORAGE_PERMISSION_REQUEST);
+                } catch (ActivityNotFoundException ex) {
+                    log.warn("Failed to open app-specific all files access settings, using fallback", ex);
+                    Intent fallbackIntent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                    startActivityForResult(fallbackIntent, MANAGE_STORAGE_PERMISSION_REQUEST);
+                }
+            }
+            return hasAllFilesAccess;
+        } else {
+            boolean hasWrite = checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    == PackageManager.PERMISSION_GRANTED;
+            if (!hasWrite && promptIfNeeded) {
+                requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                        STORAGE_WRITE_PERMISSION_REQUEST);
+            }
+            return hasWrite;
+        }
+    }
+
+    private boolean ensureBatteryOptimizationExemption(boolean promptIfNeeded) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return true;
+        }
+
+        PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        if (powerManager == null) {
+            return true;
+        }
+
+        boolean ignoring = powerManager.isIgnoringBatteryOptimizations(getPackageName());
+        if (!ignoring && promptIfNeeded) {
+            Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+            intent.setData(Uri.parse("package:" + getPackageName()));
+            try {
+                startActivity(intent);
+            } catch (ActivityNotFoundException | SecurityException ex) {
+                log.warn("Failed to request battery optimization exemption directly", ex);
+                Intent settingsIntent = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+                try {
+                    startActivity(settingsIntent);
+                } catch (ActivityNotFoundException | SecurityException inner) {
+                    log.error("Cannot open battery optimization settings", inner);
+                }
+            }
+        }
+
+        return ignoring;
+    }
+
     private void startBackupService() {
+        if (!ensureStorageAccess(true)) {
+            Toast.makeText(this, R.string.storage_permission_required, Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (!ensureBatteryOptimizationExemption(true)) {
+            Toast.makeText(this, R.string.battery_permission_required, Toast.LENGTH_LONG).show();
+            return;
+        }
         log.debug("Starting foreground service");
         Intent serviceIntent = new Intent(this, ForegroundBackupService.class);
         startForegroundService(serviceIntent);
