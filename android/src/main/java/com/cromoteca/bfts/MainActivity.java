@@ -57,11 +57,13 @@ import java.util.Map;
 public class MainActivity extends Activity {
     private static final int STORAGE_WRITE_PERMISSION_REQUEST = 1;
     private static final int MANAGE_STORAGE_PERMISSION_REQUEST = 2;
+    private static final int NOTIFICATION_PERMISSION_REQUEST = 3;
     Logger log = LoggerFactory.getLogger(MainActivity.class);
 
     private ForegroundBackupService backupService;
     private Button toggleButton;
     private boolean bound;
+    private boolean pendingStartAfterNotificationPermission;
 
     private final ServiceConnection mConnection = new ServiceConnection() {
         @Override
@@ -88,6 +90,7 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
         ensureStorageAccess(false);
         ensureBatteryOptimizationExemption(false);
+        ensureNotificationPermission(false);
 
         Button settingsButton = findViewById(R.id.settingsButton);
         settingsButton.setOnClickListener(e -> {
@@ -134,6 +137,7 @@ public class MainActivity extends Activity {
 
         ensureStorageAccess(false);
         ensureBatteryOptimizationExemption(false);
+        ensureNotificationPermission(false);
         updateToggleButton();
 
         TextView statsText = findViewById(R.id.statsText);
@@ -220,6 +224,20 @@ public class MainActivity extends Activity {
                     Toast.makeText(this, R.string.storage_permission_required, Toast.LENGTH_LONG).show();
                 }
                 break;
+            case NOTIFICATION_PERMISSION_REQUEST:
+                boolean notificationGranted = grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+                log.info("Notification permission granted: " + notificationGranted);
+                if (notificationGranted && pendingStartAfterNotificationPermission) {
+                    pendingStartAfterNotificationPermission = false;
+                    startBackupService();
+                } else {
+                    if (!notificationGranted) {
+                        Toast.makeText(this, R.string.notification_permission_required, Toast.LENGTH_LONG).show();
+                    }
+                    pendingStartAfterNotificationPermission = false;
+                }
+                break;
         }
     }
 
@@ -293,6 +311,19 @@ public class MainActivity extends Activity {
         return ignoring;
     }
 
+    private boolean ensureNotificationPermission(boolean promptIfNeeded) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return true;
+        }
+        boolean granted = checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED;
+        if (!granted && promptIfNeeded) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                    NOTIFICATION_PERMISSION_REQUEST);
+        }
+        return granted;
+    }
+
     private void startBackupService() {
         if (!ensureStorageAccess(true)) {
             Toast.makeText(this, R.string.storage_permission_required, Toast.LENGTH_LONG).show();
@@ -302,6 +333,12 @@ public class MainActivity extends Activity {
             Toast.makeText(this, R.string.battery_permission_required, Toast.LENGTH_LONG).show();
             return;
         }
+        if (!ensureNotificationPermission(true)) {
+            pendingStartAfterNotificationPermission = true;
+            Toast.makeText(this, R.string.notification_permission_required, Toast.LENGTH_LONG).show();
+            return;
+        }
+        pendingStartAfterNotificationPermission = false;
         log.debug("Starting foreground service");
         Intent serviceIntent = new Intent(this, ForegroundBackupService.class);
         startForegroundService(serviceIntent);

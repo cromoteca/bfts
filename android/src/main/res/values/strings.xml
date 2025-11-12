@@ -5,4 +5,5 @@
     <string name="stop_backup">Stop backup</string>
     <string name="storage_permission_required">Full file access is required to run backups.</string>
     <string name="battery_permission_required">Disable battery optimizations so backups can continue running.</string>
+    <string name="notification_permission_required">Allow notifications so the backup service can stay in the foreground.</string>
 </resources>
