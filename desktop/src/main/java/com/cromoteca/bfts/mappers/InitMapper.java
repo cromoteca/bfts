@@ -102,7 +102,7 @@ public interface InitMapper {
    */
   void createFileView();
 
-  void createFriendlyFileView();
+  void createFilesView();
 
   void createFriendlySourceView();
 }

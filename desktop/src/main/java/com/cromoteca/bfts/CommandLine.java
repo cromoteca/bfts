@@ -20,125 +20,34 @@ import asg.cliche.Command;
 import asg.cliche.Param;
 import asg.cliche.Shell;
 import asg.cliche.ShellFactory;
-import com.cromoteca.bfts.client.ClientActivities;
-import com.cromoteca.bfts.client.ClientScheduler;
-import com.cromoteca.bfts.client.Configuration;
-import com.cromoteca.bfts.client.Filesystem;
-import com.cromoteca.bfts.control.ControlCoordinator;
-import com.cromoteca.bfts.control.ControlOperations;
-import com.cromoteca.bfts.control.ControlStatus;
-import com.cromoteca.bfts.cryptography.Cryptographer;
-import com.cromoteca.bfts.model.Pair;
-import com.cromoteca.bfts.model.Source;
-import com.cromoteca.bfts.model.Stats;
-import com.cromoteca.bfts.model.StorageConfiguration;
-import com.cromoteca.bfts.restore.BackupFileSystemFactory;
-import com.cromoteca.bfts.restore.BackupFileSystemView;
-import com.cromoteca.bfts.storage.EncryptedStorages;
 import com.cromoteca.bfts.storage.EncryptionType;
-import com.cromoteca.bfts.storage.FileStatus;
-import com.cromoteca.bfts.storage.InitializationException;
-import com.cromoteca.bfts.storage.LocalStorage;
-import com.cromoteca.bfts.storage.RemoteStorage;
-import com.cromoteca.bfts.storage.RemoteStorageServer;
-import com.cromoteca.bfts.storage.Storage;
-import com.cromoteca.bfts.storage.StorageException;
-import com.cromoteca.bfts.util.Factory;
-import com.cromoteca.bfts.util.FilePath;
-import com.cromoteca.bfts.util.Util;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.Console;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.SortedMap;
-import java.util.function.IntConsumer;
-import java.util.prefs.Preferences;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import org.apache.ftpserver.FtpServer;
-import org.apache.ftpserver.FtpServerFactory;
+import java.util.Collections;
 import org.apache.ftpserver.ftplet.FtpException;
-import org.apache.ftpserver.listener.ListenerFactory;
-import org.apache.ftpserver.usermanager.impl.BaseUser;
-import org.ocpsoft.prettytime.PrettyTime;
 
 /**
  * A shell that can be used to configure backups and run them interactively. It
  * is also able to run the program without interaction by passing some options
- * as command line arguments. Examples:
- *
- * <pre>java -jar bfts.jar</pre> shows a prompt;
- *
- * <pre>java -jar bfts.jar start true/false</pre> runs the program in
- * fast/nice mode using passwords stored in the configuration.
+ * as command line arguments.
  *
  * @author Luciano Vernaschi (luciano at cromoteca.com)
  */
 public class CommandLine {
-  private static final String FTP_URL = "ftp://localhost:3715/";
-  private static final Pattern HOST_PORT = Pattern.compile("(.+):(\\d+)");
-  private static final Factory FACTORY = new Factory();
-  private static Shell shell;
-  private static final Configuration CONFIG
-      = new Configuration(Preferences.userNodeForPackage(CommandLine.class));
-  private final ControlCoordinator controlCoordinator;
+  private Shell shell;
+  private final ClientAPI client;
 
   public CommandLine() {
-    controlCoordinator = new ControlCoordinator(new LocalOperations(),
-        CONFIG.getControlPort());
-  }
-
-  private class LocalOperations implements ControlOperations {
-    @Override
-    public void startAllLocal() {
-      startBackups(null);
-    }
-
-    @Override
-    public void startLocal(String name) {
-      startBackups(name);
-    }
-
-    @Override
-    public void stopAllLocal() {
-      stopBackups(null);
-    }
-
-    @Override
-    public void stopLocal(String name) {
-      stopBackups(name);
-    }
-
-    @Override
-    public void fastLocal() {
-      setFast(true);
-    }
-
-    @Override
-    public void niceLocal() {
-      setFast(false);
-    }
-
-    @Override
-    public ControlStatus status(int port) {
-      Map<String, Boolean> states = Arrays.stream(CONFIG.getConnectedStorages())
-          .collect(Collectors.toMap(name -> name,
-              name -> FACTORY.obtain(ClientScheduler.class, name) != null));
-      return new ControlStatus(true, port, states);
-    }
+    client = new ClientAPI();
   }
 
   public static void main(String[] args) throws Exception {
-    // example: java -jar bfts.jar start true
     if (args.length > 0 && "start".equals(args[0])) {
-      // run the backup immediately
       CommandLine cl = new CommandLine();
 
       cl.start();
@@ -151,8 +60,6 @@ public class CommandLine {
         }
       }
     } else if (args.length > 2 && "init".equals(args[0])) {
-      // example: java -jar bfts.jar init storagename /my/storage/path 8715
-      // create a storage
       CommandLine cl = new CommandLine();
 
       String name = args[1];
@@ -166,41 +73,17 @@ public class CommandLine {
 
       cl.quit();
     } else if (args.length > 0 && ("shell".equals(args[0]) || "cli".equals(args[0]))) {
-      // use client name as prompt
-      String name = CONFIG.getClientName();
+      CommandLine commandLine = new CommandLine();
+      String name = commandLine.client.getClientName();
 
       if (name == null) {
         name = "";
       }
 
-      shell = ShellFactory.createConsoleShell(name, "BFTS", new CommandLine());
-      shell.commandLoop(); // does not return until exit command is used
+      commandLine.shell = ShellFactory.createConsoleShell(name, "BFTS", commandLine);
+      commandLine.shell.commandLoop(); // does not return until exit command is used
     } else {
       GUI.main(args);
-    }
-  }
-
-  @Command(description
-      = "Quits the program (don't use EXIT as is causes thread locks")
-  public void quit() {
-    controlCoordinator.close();
-    System.exit(0);
-  }
-
-  @Command(description = "Cancels the whole configuration")
-  public void clearConfiguration() {
-    CONFIG.remove();
-    System.out.println("Configuration cleared, exiting");
-    quit();
-  }
-
-  @Command(description = "Sets the name of this client")
-  public void name(@Param(name = "Client name") String name) {
-    if (!Util.validName(name)) {
-      System.err.println("Name is not valid");
-    } else {
-      CONFIG.setClientName(name);
-      shell.setPath(Arrays.asList(new String[] { name }));
     }
   }
 
@@ -215,16 +98,37 @@ public class CommandLine {
     return console.readPassword();
   }
 
+  @Command(description
+      = "Quits the program (don't use EXIT as is causes thread locks")
+  public void quit() {
+    client.quit();
+  }
+
+  @Command(description = "Cancels the whole configuration")
+  public void clearConfiguration() {
+    client.clearConfiguration();
+  }
+
+  @Command(description = "Sets the name of this client")
+  public void name(@Param(name = "Client name") String name) {
+    client.name(name);
+
+    if (shell != null) {
+      String currentName = client.getClientName();
+
+      if (currentName == null) {
+        currentName = "";
+      }
+
+      shell.setPath(Collections.singletonList(currentName));
+    }
+  }
 
   @Command(description = "Initializes a new local storage")
   public void init(@Param(name = "Storage name") String name,
       @Param(name = "Storage path") String path,
       @Param(name = "In memory database") boolean inMemory) {
-    StorageConfiguration storageConfig = new StorageConfiguration();
-    LocalStorage.init(FilePath.get(path), inMemory, storageConfig);
-    CONFIG.setLocalStoragePath(name, path);
-    System.out.format("Local storage %s initialized in directory %s\n", name,
-        path);
+    System.out.print(client.init(name, path, inMemory));
   }
 
   @Command(abbrev = "pub", description = "Publishes a local storage over HTTP")
@@ -232,16 +136,9 @@ public class CommandLine {
       @Param(name = "HTTP port") int port)
       throws GeneralSecurityException {
     char[] passwordChars = askPassword("Transmission password: ");
-    String path = CONFIG.getLocalStoragePath(name);
-    LocalStorage storage = LocalStorage.get(FilePath.get(path));
-    StorageConfiguration storageConfig = storage.getStorageConfiguration();
-
-    // The HTTP connection needs a key pair to encrypt exchanged data
-    Cryptographer crypto = new Cryptographer(storageConfig.getSalt(),
-        passwordChars);
-    storage.addKeyPair(crypto.generateKeyPair());
-    CONFIG.setLocalStoragePort(name, port);
-    System.out.format("Storage %s published on port %d\n", name, port);
+    String password = new String(passwordChars);
+    Arrays.fill(passwordChars, '\0');
+    System.out.print(client.publish(name, port, password));
   }
 
   @Command(description = "Connects to a storage")
@@ -250,124 +147,50 @@ public class CommandLine {
           description = "Local dir or host:port") String path,
       @Param(name = "Encryption (none, data, full)") String encryption) {
     EncryptionType encryptionType = EncryptionType.fromString(encryption);
-    CONFIG.setConnectedStoragePath(name, path);
-    CONFIG.setConnectedStorageEncryptionType(name, encryptionType);
 
     char[] transmissionChars = askPassword("Transmission password: ");
     String transmissionPassword = new String(transmissionChars);
-    CONFIG.setConnectedStorageTransmissionPassword(name, transmissionPassword);
+    Arrays.fill(transmissionChars, '\0');
+
+    String fileEncryptionPassword = null;
 
     if (encryptionType != EncryptionType.NONE) {
       char[] fileChars = askPassword("File encryption password: ");
-      String fileEncryptionPassword = new String(fileChars);
-      CONFIG.setConnectedStorageFileEncryptionPassword(name, fileEncryptionPassword);
+      fileEncryptionPassword = new String(fileChars);
+      Arrays.fill(fileChars, '\0');
     }
 
-    System.out.format("Prepared connection to storage %s as %s\n", name,
-        CONFIG.getClientName());
-  }
-
-  @Command(description
-      = "Walks all connections and prompts for any missing passwords")
-  public void passwords() {
-    String[] storages = CONFIG.getConnectedStorages();
-
-    if (storages.length == 0) {
-      System.out.println("No connected storages configured");
-      return;
-    }
-
-    boolean storedAny = false;
-
-    for (String storageName : storages) {
-      if (ensureTransmissionPassword(storageName)) {
-        System.out.format("Transmission password stored for %s\n", storageName);
-        storedAny = true;
-      }
-
-      EncryptionType encryptionType
-          = CONFIG.getConnectedStorageEncryptionType(storageName);
-
-      if (encryptionType != EncryptionType.NONE
-          && ensureFileEncryptionPassword(storageName)) {
-        System.out.format("File encryption password stored for %s\n", storageName);
-        storedAny = true;
-      }
-    }
-
-    if (!storedAny) {
-      System.out.println("All passwords already stored");
-    }
-  }
-
-  private boolean ensureTransmissionPassword(String storageName) {
-    String current = CONFIG.getConnectedStorageTransmissionPassword(storageName);
-
-    if (current != null && !current.isEmpty()) {
-      return false;
-    }
-
-    char[] transmissionChars = askPassword("Transmission password for "
-        + storageName + ": ");
-    CONFIG.setConnectedStorageTransmissionPassword(storageName,
-        new String(transmissionChars));
-    return true;
-  }
-
-  private boolean ensureFileEncryptionPassword(String storageName) {
-    String current = CONFIG.getConnectedStorageFileEncryptionPassword(storageName);
-
-    if (current != null && !current.isEmpty()) {
-      return false;
-    }
-
-    char[] fileChars = askPassword("File encryption password for "
-        + storageName + ": ");
-    CONFIG.setConnectedStorageFileEncryptionPassword(storageName,
-        new String(fileChars));
-    return true;
+    client.connect(name, path, encryption, transmissionPassword, fileEncryptionPassword);
   }
 
   @Command(description = "Adds a backup source to a storage")
   public void add(@Param(name = "Connection name") String storageName,
       @Param(name = "Source name") String name,
       @Param(name = "Source path") String path) throws IOException {
-    if (!Util.validName(name)) {
-      System.err.println("Source name is not valid");
-    } else {
-      FilePath directory = FilePath.get(path);
-
-      if (directory.isDirectory()) {
-        Storage storage = getStorage(storageName);
-        storage.addSource(CONFIG.getClientName(), name, path);
-        System.out.format("Added source %s to storage %s\n", name, storageName);
-      } else {
-        System.out.format("%s is not a directory\n", path);
-      }
-    }
+    System.out.print(client.add(storageName, name, path));
   }
 
   @Command(description = "Change source priority")
   public void priority(@Param(name = "Connection name") String storageName,
       @Param(name = "Source name") String name,
       @Param(name = "Priority") int priority) {
-    Storage storage = getStorage(storageName);
-    storage.setSourcePriority(CONFIG.getClientName(), name, priority);
-    System.out.format("Priority for %s set to %d\n", name, priority);
+    client.priority(storageName, name, priority);
   }
 
   @Command(description = "Lists local and connected storages")
   public void list() {
+    ObjectNode result = client.list();
     System.out.println("Local storages:");
-    String[] localStorages = CONFIG.getLocalStorages();
+    ArrayNode localStorages = (ArrayNode) result.get("localStorages");
 
-    if (localStorages.length == 0) {
+    if (localStorages == null || localStorages.isEmpty()) {
       System.out.println("    none");
     } else {
-      for (String name : localStorages) {
-        String path = CONFIG.getLocalStoragePath(name);
+      for (JsonNode node : localStorages) {
+        String name = node.path("name").asText();
+        String path = node.path("path").asText("");
         System.out.format("    %s on path %s", name, path);
-        int port = CONFIG.getLocalStoragePort(name);
+        int port = node.path("port").asInt(0);
 
         if (port > 0) {
           System.out.format(", published on port %d", port);
@@ -378,368 +201,85 @@ public class CommandLine {
     }
 
     System.out.println("Connected storages:");
-    String[] connectedStorages = CONFIG.getConnectedStorages();
+    ArrayNode connectedStorages = (ArrayNode) result.get("connectedStorages");
 
-    if (connectedStorages.length == 0) {
+    if (connectedStorages == null || connectedStorages.isEmpty()) {
       System.out.println("    none");
     } else {
-      for (String name : connectedStorages) {
-        String path = CONFIG.getConnectedStoragePath(name);
-        EncryptionType encryptionType
-            = CONFIG.getConnectedStorageEncryptionType(name);
+      for (JsonNode node : connectedStorages) {
+        String name = node.path("name").asText();
+        String path = node.path("path").asText("");
+        String encryptionType = node.path("encryption").asText("none");
         System.out.format("    %s on path %s (encryption: %s)\n", name, path,
-            encryptionType.toString().toLowerCase());
+            encryptionType);
       }
     }
   }
 
   @Command(description = "Lists sources backed up on a storage")
   public String list(@Param(name = "Connection name") String name) {
-    Storage storage = getStorage(name);
-    List<Source> sources = storage.selectSources(CONFIG.getClientName());
-    return sources.stream()
-        .map(source -> String.format("    %s on path %s with priority %d",
-        source.getName(), source.getRootPath(), source.getPriority()))
-        .collect(Collectors.joining("\n"));
+    return client.list(name);
   }
 
   @Command(description = "Make a complete backup of all sources")
   public void complete(@Param(name = "Storage name") String storageName) {
-    Storage storage = getStorage(storageName);
-    Filesystem fs = new Filesystem();
-    fs.setFilesystemScanSize(Integer.MAX_VALUE);
-    ClientActivities ca = new ClientActivities(CONFIG.getClientName(), fs,
-        storage, storageName, CONFIG.getLongOperationDuration());
-
-    for (Source source : storage.selectSources(CONFIG.getClientName())) {
-      doCompleteBackup(ca, source.getName());
-    }
+    client.complete(storageName);
   }
 
   @Command(description = "Make a complete backup of a source")
   public void complete(@Param(name = "Storage name") String storageName,
       @Param(name = "Source name") String sourceName) {
-    Storage storage = getStorage(storageName);
-    Filesystem fs = new Filesystem();
-    fs.setFilesystemScanSize(Integer.MAX_VALUE);
-    ClientActivities ca = new ClientActivities(CONFIG.getClientName(), fs,
-        storage, storageName, CONFIG.getLongOperationDuration());
-    doCompleteBackup(ca, sourceName);
-  }
-
-  private void doCompleteBackup(ClientActivities ca, String sourceName) {
-    Source source = ca.selectSource(false, sourceName);
-
-    if (source == null) {
-      System.out.format("Source %s is not available at the moment\n",
-          sourceName);
-    } else {
-      ca.sendFiles(source);
-      while (!ca.syncDeletions(source, true).isEmpty()) {}
-      while (!ca.syncAdditions(source, true).isEmpty()) {}
-      while (ca.sendHashes(FileStatus.CURRENT, source.getId()) > 0) {}
-      while (ca.uploadChunks(FileStatus.CURRENT, source.getId()) > 0) {}
-    }
+    client.complete(storageName, sourceName);
   }
 
   @Command(abbrev = "start", description = "Starts all backups")
   public void start() {
-    controlCoordinator.startAll();
+    client.start();
   }
 
   @Command(abbrev = "start", description = "Starts a backup")
   public void start(@Param(name = "Storage name") String name) {
-    controlCoordinator.start(name);
-  }
-
-  private void startBackups(String name) {
-    // start all HTTP servers, for use by remote clients
-    Stream<String> stream = Arrays.stream(CONFIG.getLocalStorages());
-
-    if (name != null) {
-      stream = stream.filter(n -> name.equals(n));
-    }
-
-    // collect paths and ports
-    stream.map(n -> new Pair<>(CONFIG.getLocalStoragePath(n),
-        CONFIG.getLocalStoragePort(n)))
-        // keep those with a valid port number (port is 0 when not published)
-        .filter(storage -> storage.getSecond() > 0)
-        .forEach(storage -> {
-          String path = storage.getFirst();
-          Integer port = storage.getSecond();
-
-          try {
-            LocalStorage localStorage = LocalStorage.get(FilePath.get(path));
-            RemoteStorageServer server = new RemoteStorageServer(localStorage);
-
-            // start server and keep reference to be able to stop it
-            IntConsumer stop = server.startHTTPServer(port);
-            FACTORY.registerSingleton(IntConsumer.class, port, stop);
-          } catch (InitializationException ex) {
-            System.out.format("Storage server %s not started: %s\n", path,
-                ex.getMessage());
-          } catch (IOException ex) {
-            throw new RuntimeException(ex);
-          }
-
-          System.out.format("Server started for %s on port %d\n", path, port);
-        });
-
-    Filesystem filesystem = new Filesystem();
-
-    // start all backups
-    stream = Arrays.stream(CONFIG.getConnectedStorages());
-
-    if (name != null) {
-      stream = stream.filter(n -> name.equals(n));
-    }
-
-    stream.forEach(n -> {
-      try {
-        Storage storage = getStorage(n);
-
-        if (storage == null) {
-          System.out.format("Storage server %s is not available\n", n);
-        } else {
-          // one ClientActivities object for each backup destination
-          ClientActivities ca = new ClientActivities(CONFIG.getClientName(),
-              filesystem, storage, n, CONFIG.getLongOperationDuration());
-
-          // one scheduler for each backup destination
-          ClientScheduler cs = new ClientScheduler(ca, 5000, 150000);
-          FACTORY.registerSingleton(ClientScheduler.class, n, cs);
-          cs.start();
-          System.out.format("Client scheduler started for %s\n", n);
-        }
-      } catch (StorageException ex) {
-        ex.printStackTrace(System.err);
-      }
-    });
+    client.start(name);
   }
 
   @Command(abbrev = "stop", description = "Stops all backups")
   public void stop() {
-    controlCoordinator.stopAll();
+    client.stop();
   }
 
   @Command(abbrev = "stop", description = "Stops a backup")
   public void stop(@Param(name = "Storage name") String name) {
-    controlCoordinator.stop(name);
-  }
-
-  private void stopBackups(String name) {
-    System.out.print("Stopping running backup... ");
-
-    Stream<String> stream = Arrays.stream(CONFIG.getConnectedStorages());
-    if (name != null) {
-      stream = stream.filter(n -> name.equals(n));
-    }
-
-    // stopping more backups at the same time (not optimal since parallel is
-    // based on the number of CPUs)
-    stream.parallel()
-        .forEach(n -> {
-          ClientScheduler cs = FACTORY.obtain(ClientScheduler.class, n);
-
-          if (cs != null) {
-            cs.stop();
-            FACTORY.unregister(ClientScheduler.class, n);
-          }
-        });
-
-    System.out.print("and local storage... ");
-
-    stream = Arrays.stream(CONFIG.getLocalStorages());
-
-    if (name != null) {
-      stream = stream.filter(n -> name.equals(n));
-    }
-
-    // close more storages at the same time
-    stream.parallel().forEach(n -> {
-      int port = CONFIG.getLocalStoragePort(n);
-
-      // stop the related HTTP server if the storage is published
-      if (port > 0) {
-        IntConsumer stop = FACTORY.obtain(IntConsumer.class, port);
-
-        if (stop != null) {
-          stop.accept(10);
-          FACTORY.unregister(IntConsumer.class, port);
-        }
-      }
-
-      FilePath path = FilePath.get(CONFIG.getLocalStoragePath(n));
-
-      try {
-        LocalStorage.get(path).close();
-      } catch (InitializationException ex) {
-        System.out.format("Storage server %s not stopped: %s\n", path,
-            ex.getMessage());
-      }
-    });
-
-    System.out.println("done");
+    client.stop(name);
   }
 
   @Command(description = "Browse backup")
   public void browse() throws FtpException, IOException {
-    browse(CONFIG.getClientName());
+    client.browse();
   }
 
   @Command(description = "Browse backup")
   public void browse(@Param(name = "Client name") String clientName)
       throws FtpException, IOException {
-    FtpServerFactory serverFactory = new FtpServerFactory();
-    ListenerFactory factory = new ListenerFactory();
-    factory.setPort(3715);
-    serverFactory.addListener("default", factory.createListener());
-
-    BaseUser user = new BaseUser();
-    user.setName("anonymous");
-    serverFactory.getUserManager().save(user);
-
-    Map<String, Storage> map = Arrays.stream(CONFIG.getConnectedStorages())
-        .map(n -> new Pair<>(n, getStorage(n)))
-        .filter(p -> p.getSecond() != null)
-        .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
-    BackupFileSystemFactory fileSystemFactory
-        = new BackupFileSystemFactory(clientName, map);
-    serverFactory.setFileSystem(fileSystemFactory);
-
-    FtpServer server = serverFactory.createServer();
-    server.start();
-
-    if (Util.isWindows()) {
-      Runtime.getRuntime().exec("explorer.exe " + FTP_URL
-          + BackupFileSystemView.FORMATTER.format(new Date()));
-    } else {
-      System.out.println("Please open " + FTP_URL);
-    }
+    client.browse(clientName);
   }
 
   @Command(description = "Get backup stats")
   public void stats(@Param(name = "Storage name") String name) {
-    Storage storage = getStorage(name);
-    SortedMap<String, Stats> allStats
-        = storage.getDetailedClientStats(CONFIG.getClientName());
-
-    PrettyTime pt = new PrettyTime(Locale.UK);
-
-    for (Entry<String, Stats> entry : allStats.entrySet()) {
-      Stats stats = entry.getValue();
-      long time = stats.getLastUpdated();
-      System.out.format("%s:\n    Last updated: %s\n    Files: %d\n"
-          + "    Files without hash: %d\n    Missing file chunks: %d\n",
-          entry.getKey(),
-          time == 0 ? "never" : pt.format(new Date(time)),
-          stats.getFiles(),
-          stats.getFilesWithoutHash(),
-          stats.getMissingChunks()
-      );
-    }
+    client.stats(name);
   }
 
   @Command(description = "Makes backup faster")
   public void fast() {
-    controlCoordinator.fast();
+    client.fast();
   }
 
   @Command(description = "Makes backup slower")
   public void nice() {
-    controlCoordinator.nice();
+    client.nice();
   }
 
   @Command(description = "Deletes unreferenced files")
   public void reclaimSpace(@Param(name = "Storage name") String storageName) {
-    Storage storage = getStorage(storageName);
-    Pair<Integer, Long> result = storage.deleteUnusedChunkFiles();
-    System.out.format("%d files deleted for a total of %d bytes reclaimed\n",
-        result.getFirst(), result.getSecond());
-  }
-
-  private void setFast(boolean fast) {
-    Arrays.stream(CONFIG.getConnectedStorages())
-        .forEach(name -> {
-          ClientScheduler cs = FACTORY.obtain(ClientScheduler.class, name);
-
-          if (cs != null) {
-            cs.setFast(fast);
-          }
-        });
-  }
-
-  private Storage getStorage(String storageName) {
-    String path = CONFIG.getConnectedStoragePath(storageName);
-    EncryptionType encryptionType
-        = CONFIG.getConnectedStorageEncryptionType(storageName);
-    Storage storage = null;
-    Pair<String, Integer> split = splitHostPort(path);
-
-    if (split == null) {
-      // local storage
-      try {
-        storage = LocalStorage.get(FilePath.get(path));
-        System.out.format("Connected to local storage %s\n", path);
-      } catch (InitializationException ex) {
-        System.out.format("Storage server %s not started: %s\n", path,
-            ex.getMessage());
-      }
-    } else {
-      // remote storage
-      String host = split.getFirst();
-      int port = split.getSecond();
-      String transmissionPassword
-          = CONFIG.getConnectedStorageTransmissionPassword(storageName);
-      if (transmissionPassword == null || transmissionPassword.isEmpty()) {
-        throw new IllegalStateException("Transmission password not set for " + storageName);
-      }
-      storage = RemoteStorage.create(host, port, transmissionPassword.toCharArray());
-      System.out.format("Connected to remote storage %s\n", path);
-    }
-
-    if (storage != null) {
-      switch (encryptionType) {
-        case DATA:
-          String dataPassword = CONFIG.getConnectedStorageFileEncryptionPassword(storageName);
-          if (dataPassword == null || dataPassword.isEmpty()) {
-            throw new IllegalStateException("File encryption password not set for " + storageName);
-          }
-          storage = EncryptedStorages.getEncryptedStorage(storage,
-              dataPassword.toCharArray(), false);
-          System.out.format("Using data encryption on storage %s\n", path);
-          break;
-        case FULL:
-          String fullPassword = CONFIG.getConnectedStorageFileEncryptionPassword(storageName);
-          if (fullPassword == null || fullPassword.isEmpty()) {
-            throw new IllegalStateException("File encryption password not set for " + storageName);
-          }
-          storage = EncryptedStorages.getEncryptedStorage(storage,
-              fullPassword.toCharArray(), true);
-          System.out.format("Using full encryption on storage %s\n", path);
-          break;
-        case NONE:
-        // leave storage unencrypted
-        }
-    }
-
-    return storage;
-  }
-
-  /**
-   * Extracts host name and port from a host in the format example.com:1234.
-   *
-   * @return a Pair containing hostname and port, or null if the passed string
-   *         is not in the correct format
-   */
-  private static Pair<String, Integer> splitHostPort(String s) {
-    Matcher m = HOST_PORT.matcher(s);
-
-    if (m.matches()) {
-      return new Pair<>(m.group(1), Integer.valueOf(m.group(2)));
-    } else {
-      return null;
-    }
+    client.reclaimSpace(storageName);
   }
 }

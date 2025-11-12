@@ -11,6 +11,7 @@
   <modules>
     <module>shared</module>
     <module>desktop</module>
+    <module>mcp</module>
   </modules>
 
   <repositories>

@@ -141,6 +141,50 @@ public class LocalStorageTest {
   }
 
   @Test
+  public void testQueryFilesView() throws Exception {
+    SQLScript script = new SQLScript();
+    storage.runSQL(session ->
+        script.run(session.getConnection(),
+            getClass().getResource("LocalStorage.addFiles.sql")));
+
+    TabularQueryResult result =
+        storage.queryFilesView(Arrays.asList("name", "size", "uploaded"),
+            "size >= 200", "name asc", 5);
+
+    assertEquals(Arrays.asList("name", "size", "uploaded"), result.getColumns());
+    List<List<Object>> rows = result.getRows();
+    assertEquals(2, rows.size());
+
+    assertEquals("file2", rows.get(0).get(0));
+    assertEquals(200, ((Number) rows.get(0).get(1)).intValue());
+
+    assertEquals("file3", rows.get(1).get(0));
+    assertEquals(300, ((Number) rows.get(1).get(1)).intValue());
+  }
+
+  @Test
+  public void testQueryFilesViewInvalidColumnMessage() throws Exception {
+    SQLScript script = new SQLScript();
+    storage.runSQL(session ->
+        script.run(session.getConnection(),
+            getClass().getResource("LocalStorage.addFiles.sql")));
+
+    try {
+      storage.queryFilesView(
+          Arrays.asList("nonexisting"), null, null, 5);
+      fail("Missing column should raise a StorageException");
+    } catch (StorageException ex) {
+      String message = ex.getMessage();
+      assertNotNull("Expected an informative error message", message);
+      String lower = message.toLowerCase();
+      assertTrue("Message should mention missing column: " + message,
+          lower.contains("no such column"));
+      assertTrue("Message should include the column name: " + message,
+          lower.contains("nonexisting"));
+    }
+  }
+
+  @Test
   public void testUpdateHashes() throws Exception {
     SQLScript script = new SQLScript();
     SQLScriptVars vars;

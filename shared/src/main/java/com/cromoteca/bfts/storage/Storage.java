@@ -199,6 +199,19 @@ public interface Storage {
   SortedMap<String, Stats> getDetailedClientStats(String clientName);
 
   /**
+   * Executes a read-only query that exposes backed up files through
+   * {@code friendly_file_view}.
+   *
+   * @param columns requested columns (must not be empty)
+   * @param whereClause optional SQL WHERE clause (without the keyword)
+   * @param orderByClause optional SQL ORDER BY clause
+   * @param limit maximum number of rows to return
+   * @return a tabular result
+   */
+  TabularQueryResult queryFilesView(
+      List<String> columns, String whereClause, String orderByClause, int limit);
+
+  /**
    * Returns a list of all chunks that have been uploaded in a specified range
    * (mostly useful for maintenance tasks)
    *

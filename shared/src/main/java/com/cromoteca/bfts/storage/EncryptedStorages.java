@@ -21,11 +21,13 @@ import com.cromoteca.bfts.util.Container;
 import com.cromoteca.bfts.util.lambdas.IOSupplier;
 import com.googlecode.openbeans.Introspector;
 import com.googlecode.openbeans.PropertyDescriptor;
+
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.security.GeneralSecurityException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -83,15 +85,12 @@ public class EncryptedStorages {
           t = (T) (enc ? crypto.encrypt((String) t) : crypto.decrypt((String) t));
         }
       } else if (t instanceof List<?>) {
-        Method get = List.class.getMethod("get", int.class);
-        Method set = List.class.getMethod("set", int.class, Object.class);
         List<?> list = (List<?>) t;
-
-        for (int i = 0; i < list.size(); i++) {
-          Object item = get.invoke(list, i);
-          item = doEncryptionDecryption(item, crypto, enc, strings);
-          set.invoke(list, i, item);
+        List<Object> newList = new ArrayList<>(list.size());
+        for (Object item : list) {
+          newList.add(doEncryptionDecryption(item, crypto, enc, strings));
         }
+        t = (T) newList;
       } else if (t.getClass().isArray()) {
         for (int i = 0; i < Array.getLength(t); i++) {
           Object item = Array.get(t, i);

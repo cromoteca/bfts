@@ -37,11 +37,13 @@ import com.cromoteca.bfts.util.Util;
 import com.cromoteca.bfts.util.lambdas.IOSupplier;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.file.StandardCopyOption;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -57,6 +59,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ibatis.session.SqlSession;
@@ -81,6 +84,10 @@ public class LocalStorage implements Storage, AutoCloseable {
    * query (see addFiles in StorageMapper.xml).
    */
   public static final int BATCH_SIZE = 100;
+  private static final int DEFAULT_FRIENDLY_LIMIT = 50;
+  private static final int MAX_FRIENDLY_LIMIT = 500;
+  private static final Pattern FRIENDLY_COLUMN_PATTERN =
+      Pattern.compile("[A-Za-z_][A-Za-z0-9_.]*");
 
   private static final Logger log = LoggerFactory.getLogger(LocalStorage.class);
   private static final long DAY_MILLISECONDS
@@ -288,7 +295,7 @@ public class LocalStorage implements Storage, AutoCloseable {
     im.addServer(newConfig);
 
     im.createFileView();
-    im.createFriendlyFileView();
+    im.createFilesView();
     im.createFriendlySourceView();
 
     return im.getVersion();
@@ -354,6 +361,36 @@ public class LocalStorage implements Storage, AutoCloseable {
    */
   public FilePath getPath() {
     return storagePath;
+  }
+
+  @Override
+  public TabularQueryResult queryFilesView(
+      List<String> columns, String whereClause, String orderByClause, int limit) {
+    if (columns == null || columns.isEmpty()) {
+      throw new IllegalArgumentException("Columns list must not be empty");
+    }
+
+    List<String> sanitized = columns.stream()
+        .map(LocalStorage::sanitizeColumn)
+        .collect(Collectors.toList());
+
+    String sanitizedWhere = sanitizeClause(whereClause);
+    String sanitizedOrder = sanitizeClause(orderByClause);
+    int effectiveLimit = limit <= 0 ? DEFAULT_FRIENDLY_LIMIT : Math.min(limit, MAX_FRIENDLY_LIMIT);
+
+    List<Map<String, Object>> rows = run(mapper ->
+        mapper.queryFilesView(sanitized, sanitizedWhere, sanitizedOrder, effectiveLimit));
+
+    List<List<Object>> values = new ArrayList<>(rows.size());
+    for (Map<String, Object> row : rows) {
+      List<Object> columnsValues = new ArrayList<>(columns.size());
+      for (String column : columns) {
+        columnsValues.add(row.get(column));
+      }
+      values.add(columnsValues);
+    }
+
+    return new TabularQueryResult(columns, values);
   }
 
   @Override
@@ -834,6 +871,25 @@ public class LocalStorage implements Storage, AutoCloseable {
     });
   }
 
+  private static String sanitizeColumn(String column) {
+    if (column == null) {
+      throw new IllegalArgumentException("Column must not be null");
+    }
+    String trimmed = column.trim();
+    if (!FRIENDLY_COLUMN_PATTERN.matcher(trimmed).matches()) {
+      throw new IllegalArgumentException("Invalid column identifier: " + column);
+    }
+    return trimmed;
+  }
+
+  private static String sanitizeClause(String clause) {
+    if (clause == null) {
+      return null;
+    }
+    String trimmed = clause.trim();
+    return trimmed.isEmpty() ? null : trimmed;
+  }
+
   /**
    * Allows to execute SQL on the embedded SQLite database, using a scheduler to
    * avoid locking issues.
@@ -850,18 +906,46 @@ public class LocalStorage implements Storage, AutoCloseable {
           result = sqlFunction.execute(session);
           session.commit();
         } catch (SQLException | IOException ex) {
-          throw new StorageException(ex);
+          String message = extractMeaningfulMessage(ex);
+          throw message == null ? new StorageException(ex) : new StorageException(message, ex);
         }
 
         return result;
       }).get();
     } catch (ExecutionException ex) {
-      throw new StorageException(ex);
+      Throwable cause = ex.getCause() == null ? ex : ex.getCause();
+      String message = extractMeaningfulMessage(cause);
+      throw message == null ? new StorageException(cause) : new StorageException(message, cause);
     } catch (InterruptedException ex) {
       log.warn(null, ex);
       Thread.currentThread().interrupt();
       return null;
     }
+  }
+
+  private static String extractMeaningfulMessage(Throwable throwable) {
+    String lastMessage = null;
+    Throwable current = throwable;
+
+    while (current != null) {
+      if (current instanceof InvocationTargetException) {
+        InvocationTargetException ite = (InvocationTargetException) current;
+        Throwable target = ite.getTargetException();
+        if (target != null) {
+          current = target;
+          continue;
+        }
+      }
+
+      String message = current.getMessage();
+      if (message != null && !message.isEmpty()) {
+        lastMessage = message;
+      }
+
+      current = current.getCause();
+    }
+
+    return lastMessage;
   }
 
   /**

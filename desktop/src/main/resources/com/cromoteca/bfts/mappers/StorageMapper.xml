@@ -535,4 +535,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
       where hash is not null
     )
   </update>
+
+  <select id="queryFilesView" resultType="hashmap">
+    select
+      <foreach item="col" index="idx" collection="columns"
+               open="" separator=", " close="">
+        ${col}
+      </foreach>
+    from friendly_file_view
+    <if test="whereClause != null">
+      where ${whereClause}
+    </if>
+    <if test="orderByClause != null">
+      order by ${orderByClause}
+    </if>
+    limit #{limit}
+  </select>
 </mapper>

@@ -31,12 +31,11 @@ import com.cromoteca.bfts.model.Stats;
 import com.cromoteca.bfts.model.StorageConfiguration;
 import com.cromoteca.bfts.restore.BackupFileSystemFactory;
 import com.cromoteca.bfts.restore.BackupFileSystemView;
-import com.cromoteca.bfts.storage.EncryptedStorages;
+import com.cromoteca.bfts.storage.ConnectedStorageResolver;
 import com.cromoteca.bfts.storage.EncryptionType;
 import com.cromoteca.bfts.storage.FileStatus;
 import com.cromoteca.bfts.storage.InitializationException;
 import com.cromoteca.bfts.storage.LocalStorage;
-import com.cromoteca.bfts.storage.RemoteStorage;
 import com.cromoteca.bfts.storage.RemoteStorageServer;
 import com.cromoteca.bfts.storage.Storage;
 import com.cromoteca.bfts.storage.StorageException;
@@ -56,8 +55,6 @@ import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.function.IntConsumer;
 import java.util.prefs.Preferences;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -77,15 +74,20 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  */
 public class ClientAPI {
   private static final String FTP_URL = "ftp://localhost:3715/";
-  private static final Pattern HOST_PORT = Pattern.compile("(.+):(\\d+)");
-  private static final Factory FACTORY = new Factory();
-  private static final Configuration CONFIG
-      = new Configuration(Preferences.userNodeForPackage(ClientAPI.class));
+  private final Factory factory;
+  private final Configuration config;
   private static final ObjectMapper mapper = new ObjectMapper();
   private final ControlCoordinator controlCoordinator;
 
   public ClientAPI() {
-    controlCoordinator = new ControlCoordinator(new LocalOperations(), CONFIG.getControlPort());
+    this(new Configuration(Preferences.userNodeForPackage(ClientAPI.class)),
+        new Factory());
+  }
+
+  public ClientAPI(Configuration configuration, Factory clientFactory) {
+    this.config = configuration;
+    this.factory = clientFactory;
+    controlCoordinator = new ControlCoordinator(new LocalOperations(), config.getControlPort());
   }
 
   private class LocalOperations implements ControlOperations {
@@ -121,9 +123,9 @@ public class ClientAPI {
 
     @Override
     public ControlStatus status(int port) {
-      Map<String, Boolean> states = Arrays.stream(CONFIG.getConnectedStorages())
+      Map<String, Boolean> states = Arrays.stream(config.getConnectedStorages())
           .collect(Collectors.toMap(name -> name,
-              name -> FACTORY.obtain(ClientScheduler.class, name) != null));
+              name -> factory.obtain(ClientScheduler.class, name) != null));
       return new ControlStatus(true, port, states);
     }
   }
@@ -140,7 +142,7 @@ public class ClientAPI {
    * Cancels the whole configuration.
    */
   public void clearConfiguration() {
-    CONFIG.remove();
+    config.remove();
     System.out.println("Configuration cleared, exiting");
     quit();
   }
@@ -154,8 +156,12 @@ public class ClientAPI {
     if (!Util.validName(name)) {
       System.err.println("Name is not valid");
     } else {
-      CONFIG.setClientName(name);
+      config.setClientName(name);
     }
+  }
+
+  public String getClientName() {
+    return config.getClientName();
   }
 
   /**
@@ -169,7 +175,7 @@ public class ClientAPI {
   public String init(String name, String path, boolean inMemory) {
     StorageConfiguration storageConfig = new StorageConfiguration();
     LocalStorage.init(FilePath.get(path), inMemory, storageConfig);
-    CONFIG.setLocalStoragePath(name, path);
+    config.setLocalStoragePath(name, path);
     return String.format("Local storage %s initialized in directory %s\n", name, path);
   }
 
@@ -182,7 +188,7 @@ public class ClientAPI {
    */
   public String publish(String name, int port, String password)
       throws GeneralSecurityException {
-    String path = CONFIG.getLocalStoragePath(name);
+    String path = config.getLocalStoragePath(name);
     LocalStorage storage = LocalStorage.get(FilePath.get(path));
     StorageConfiguration storageConfig = storage.getStorageConfiguration();
 
@@ -190,7 +196,7 @@ public class ClientAPI {
     Cryptographer crypto = new Cryptographer(storageConfig.getSalt(),
         password.toCharArray());
     storage.addKeyPair(crypto.generateKeyPair());
-    CONFIG.setLocalStoragePort(name, port);
+    config.setLocalStoragePort(name, port);
     return String.format("Storage %s published on port %d\n", name, port);
   }
 
@@ -205,28 +211,28 @@ public class ClientAPI {
    */
   public void connect(String name, String path, String encryption, String transmissionPassword, String fileEncryptionPassword) {
     EncryptionType encryptionType = EncryptionType.fromString(encryption);
-    CONFIG.setConnectedStoragePath(name, path);
-    CONFIG.setConnectedStorageEncryptionType(name, encryptionType);
+    config.setConnectedStoragePath(name, path);
+    config.setConnectedStorageEncryptionType(name, encryptionType);
 
     // Transmission password is always required
     if (transmissionPassword == null || transmissionPassword.isEmpty()) {
       throw new IllegalArgumentException("Transmission password must not be empty");
     }
-    CONFIG.setConnectedStorageTransmissionPassword(name, transmissionPassword);
+    config.setConnectedStorageTransmissionPassword(name, transmissionPassword);
 
     // File encryption password is only required when encryption is not NONE
     if (encryptionType != EncryptionType.NONE) {
       if (fileEncryptionPassword == null || fileEncryptionPassword.isEmpty()) {
         throw new IllegalArgumentException("File encryption password must not be empty when encryption is enabled");
       }
-      CONFIG.setConnectedStorageFileEncryptionPassword(name, fileEncryptionPassword);
+      config.setConnectedStorageFileEncryptionPassword(name, fileEncryptionPassword);
     }
 
-    if (!path.contains(":") && CONFIG.getLocalStoragePath(name) == null) {
-      CONFIG.setLocalStoragePath(name, path);
+    if (!path.contains(":") && config.getLocalStoragePath(name) == null) {
+      config.setLocalStoragePath(name, path);
     }
 
-    System.out.format("Prepared connection to storage %s as %s\n", name, CONFIG.getClientName());
+    System.out.format("Prepared connection to storage %s as %s\n", name, config.getClientName());
   }
 
   /**
@@ -246,7 +252,7 @@ public class ClientAPI {
 
       if (directory.isDirectory()) {
         Storage storage = getStorage(storageName);
-        storage.addSource(CONFIG.getClientName(), name, path);
+        storage.addSource(config.getClientName(), name, path);
         return String.format("Added source %s to storage %s\n", name, storageName);
       } else {
         return String.format("%s is not a directory\n", path);
@@ -263,7 +269,7 @@ public class ClientAPI {
    */
   public void priority(String storageName, String name, int priority) {
     Storage storage = getStorage(storageName);
-    storage.setSourcePriority(CONFIG.getClientName(), name, priority);
+    storage.setSourcePriority(config.getClientName(), name, priority);
     System.out.format("Priority for %s set to %d\n", name, priority);
   }
 
@@ -275,21 +281,21 @@ public class ClientAPI {
   public ObjectNode list() {
     ArrayNode locals = mapper.createArrayNode();
 
-    for (String name : CONFIG.getLocalStorages()) {
+    for (String name : config.getLocalStorages()) {
       ObjectNode node = mapper.createObjectNode();
       node.put("name", name);
-      node.put("path", CONFIG.getLocalStoragePath(name));
-      node.put("port", CONFIG.getLocalStoragePort(name));
+      node.put("path", config.getLocalStoragePath(name));
+      node.put("port", config.getLocalStoragePort(name));
       locals.add(node);
     }
 
     ArrayNode connected = mapper.createArrayNode();
 
-    for (String name : CONFIG.getConnectedStorages()) {
+    for (String name : config.getConnectedStorages()) {
       ObjectNode node = mapper.createObjectNode();
       node.put("name", name);
-      node.put("path", CONFIG.getConnectedStoragePath(name));
-      EncryptionType encType = CONFIG.getConnectedStorageEncryptionType(name);
+      node.put("path", config.getConnectedStoragePath(name));
+      EncryptionType encType = config.getConnectedStorageEncryptionType(name);
       node.put("encryption", encType.toString().toLowerCase());
       connected.add(node);
     }
@@ -314,7 +320,7 @@ public class ClientAPI {
     ObjectNode node = mapper.createObjectNode();
     node.put("port", status.getPort());
     node.put("owner", status.isOwner());
-    node.put("configuredPort", CONFIG.getControlPort());
+    node.put("configuredPort", config.getControlPort());
 
     ArrayNode storages = mapper.createArrayNode();
     status.getStorageStates().forEach((name, running) -> {
@@ -341,7 +347,7 @@ public class ClientAPI {
     if (port <= 0 || port > 65535) {
       throw new IllegalArgumentException("Port must be between 1 and 65535");
     }
-    CONFIG.setControlPort(port);
+    config.setControlPort(port);
     controlCoordinator.setPort(port);
     System.out.format("Control port set to %d\n", port);
   }
@@ -373,7 +379,7 @@ public class ClientAPI {
    */
   public String list(String name) {
     Storage storage = getStorage(name);
-    List<Source> sources = storage.selectSources(CONFIG.getClientName());
+    List<Source> sources = storage.selectSources(config.getClientName());
     return sources.stream()
         .map(source -> String.format("    %s on path %s with priority %d",
         source.getName(), source.getRootPath(), source.getPriority()))
@@ -388,7 +394,7 @@ public class ClientAPI {
    */
   public ArrayNode sources(String storageName) {
     Storage storage = getStorage(storageName);
-    List<Source> sources = storage.selectSources(CONFIG.getClientName());
+    List<Source> sources = storage.selectSources(config.getClientName());
     ArrayNode array = mapper.createArrayNode();
 
     for (Source source : sources) {
@@ -417,10 +423,10 @@ public class ClientAPI {
     Storage storage = getStorage(storageName);
     Filesystem fs = new Filesystem();
     fs.setFilesystemScanSize(Integer.MAX_VALUE);
-    ClientActivities ca = new ClientActivities(CONFIG.getClientName(), fs,
-        storage, storageName, CONFIG.getLongOperationDuration());
+    ClientActivities ca = new ClientActivities(config.getClientName(), fs,
+        storage, storageName, config.getLongOperationDuration());
 
-    for (Source source : storage.selectSources(CONFIG.getClientName())) {
+    for (Source source : storage.selectSources(config.getClientName())) {
       doCompleteBackup(ca, source.getName());
     }
   }
@@ -435,8 +441,8 @@ public class ClientAPI {
     Storage storage = getStorage(storageName);
     Filesystem fs = new Filesystem();
     fs.setFilesystemScanSize(Integer.MAX_VALUE);
-    ClientActivities ca = new ClientActivities(CONFIG.getClientName(), fs,
-        storage, storageName, CONFIG.getLongOperationDuration());
+    ClientActivities ca = new ClientActivities(config.getClientName(), fs,
+        storage, storageName, config.getLongOperationDuration());
     doCompleteBackup(ca, sourceName);
   }
 
@@ -476,15 +482,15 @@ public class ClientAPI {
 
   private void startBackups(String name) {
     // start all HTTP servers, for use by remote clients
-    Stream<String> stream = Arrays.stream(CONFIG.getLocalStorages());
+    Stream<String> stream = Arrays.stream(config.getLocalStorages());
 
     if (name != null) {
       stream = stream.filter(n -> name.equals(n));
     }
 
     // collect paths and ports
-    stream.map(n -> new Pair<>(CONFIG.getLocalStoragePath(n),
-        CONFIG.getLocalStoragePort(n)))
+    stream.map(n -> new Pair<>(config.getLocalStoragePath(n),
+        config.getLocalStoragePort(n)))
         // keep those with a valid port number (port is 0 when not published)
         .filter(storage -> storage.getSecond() > 0)
         .forEach(storage -> {
@@ -497,7 +503,7 @@ public class ClientAPI {
 
             // start server and keep reference to be able to stop it
             IntConsumer stop = server.startHTTPServer(port);
-            FACTORY.registerSingleton(IntConsumer.class, port, stop);
+            factory.registerSingleton(IntConsumer.class, port, stop);
           } catch (InitializationException ex) {
             System.out.format("Storage server %s not started: %s\n", path,
                 ex.getMessage());
@@ -511,7 +517,7 @@ public class ClientAPI {
     Filesystem filesystem = new Filesystem();
 
     // start all backups
-    stream = Arrays.stream(CONFIG.getConnectedStorages());
+    stream = Arrays.stream(config.getConnectedStorages());
 
     if (name != null) {
       stream = stream.filter(n -> name.equals(n));
@@ -525,12 +531,12 @@ public class ClientAPI {
           System.out.format("Storage server %s is not available\n", n);
         } else {
           // one ClientActivities object for each backup destination
-          ClientActivities ca = new ClientActivities(CONFIG.getClientName(),
-              filesystem, storage, n, CONFIG.getLongOperationDuration());
+          ClientActivities ca = new ClientActivities(config.getClientName(),
+              filesystem, storage, n, config.getLongOperationDuration());
 
           // one scheduler for each backup destination
           ClientScheduler cs = new ClientScheduler(ca, 5000, 150000);
-          FACTORY.registerSingleton(ClientScheduler.class, n, cs);
+          factory.registerSingleton(ClientScheduler.class, n, cs);
           cs.start();
           System.out.format("Client scheduler started for %s\n", n);
         }
@@ -563,7 +569,7 @@ public class ClientAPI {
   private void stopBackups(String name) {
     System.out.print("Stopping running backup... ");
 
-    Stream<String> stream = Arrays.stream(CONFIG.getConnectedStorages());
+    Stream<String> stream = Arrays.stream(config.getConnectedStorages());
 
     if (name != null) {
       stream = stream.filter(n -> name.equals(n));
@@ -573,17 +579,17 @@ public class ClientAPI {
     // based on the number of CPUs)
     stream.parallel()
         .forEach(n -> {
-          ClientScheduler cs = FACTORY.obtain(ClientScheduler.class, n);
+          ClientScheduler cs = factory.obtain(ClientScheduler.class, n);
 
           if (cs != null) {
             cs.stop();
-            FACTORY.unregister(ClientScheduler.class, n);
+            factory.unregister(ClientScheduler.class, n);
           }
         });
 
     System.out.print("and local storage... ");
 
-    stream = Arrays.stream(CONFIG.getLocalStorages());
+    stream = Arrays.stream(config.getLocalStorages());
 
     if (name != null) {
       stream = stream.filter(n -> name.equals(n));
@@ -591,19 +597,19 @@ public class ClientAPI {
 
     // close more storages at the same time
     stream.parallel().forEach(n -> {
-      int port = CONFIG.getLocalStoragePort(n);
+      int port = config.getLocalStoragePort(n);
 
       // stop the related HTTP server if the storage is published
       if (port > 0) {
-        IntConsumer stop = FACTORY.obtain(IntConsumer.class, port);
+        IntConsumer stop = factory.obtain(IntConsumer.class, port);
 
         if (stop != null) {
           stop.accept(10);
-          FACTORY.unregister(IntConsumer.class, port);
+          factory.unregister(IntConsumer.class, port);
         }
       }
 
-      FilePath path = FilePath.get(CONFIG.getLocalStoragePath(n));
+      FilePath path = FilePath.get(config.getLocalStoragePath(n));
 
       try {
         LocalStorage.get(path).close();
@@ -623,7 +629,7 @@ public class ClientAPI {
    * @throws IOException If an I/O error occurs
    */
   public void browse() throws FtpException, IOException {
-    browse(CONFIG.getClientName());
+    browse(config.getClientName());
   }
 
   /**
@@ -635,15 +641,15 @@ public class ClientAPI {
    */
   public void browse(String clientName) throws FtpException, IOException {
     FtpServerFactory serverFactory = new FtpServerFactory();
-    ListenerFactory factory = new ListenerFactory();
-    factory.setPort(3715);
-    serverFactory.addListener("default", factory.createListener());
+    ListenerFactory listenerFactory = new ListenerFactory();
+    listenerFactory.setPort(3715);
+    serverFactory.addListener("default", listenerFactory.createListener());
 
     BaseUser user = new BaseUser();
     user.setName("anonymous");
     serverFactory.getUserManager().save(user);
 
-    Map<String, Storage> map = Arrays.stream(CONFIG.getConnectedStorages())
+    Map<String, Storage> map = Arrays.stream(config.getConnectedStorages())
         .map(n -> new Pair<>(n, getStorage(n)))
         .filter(p -> p.getSecond() != null)
         .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
@@ -670,7 +676,7 @@ public class ClientAPI {
   public void stats(String name) {
     Storage storage = getStorage(name);
     SortedMap<String, Stats> allStats
-        = storage.getDetailedClientStats(CONFIG.getClientName());
+        = storage.getDetailedClientStats(config.getClientName());
 
     PrettyTime pt = new PrettyTime(Locale.UK);
 
@@ -715,9 +721,9 @@ public class ClientAPI {
   }
 
   private void setFast(boolean fast) {
-    Arrays.stream(CONFIG.getConnectedStorages())
+    Arrays.stream(config.getConnectedStorages())
         .forEach(name -> {
-          ClientScheduler cs = FACTORY.obtain(ClientScheduler.class, name);
+          ClientScheduler cs = factory.obtain(ClientScheduler.class, name);
 
           if (cs != null) {
             cs.setFast(fast);
@@ -726,65 +732,10 @@ public class ClientAPI {
   }
 
   private Storage getStorage(String storageName) {
-    String path = CONFIG.getConnectedStoragePath(storageName);
-    EncryptionType encryptionType
-        = CONFIG.getConnectedStorageEncryptionType(storageName);
-    Storage storage = null;
-    Pair<String, Integer> split = splitHostPort(path);
-
-    if (split == null) {
-      // local storage
-      try {
-        storage = LocalStorage.get(FilePath.get(path));
-        System.out.format("Connected to local storage %s\n", path);
-      } catch (InitializationException ex) {
-        System.out.format("Storage server %s not started: %s\n", path,
-            ex.getMessage());
-      }
-    } else {
-      // remote storage
-      String host = split.getFirst();
-      int port = split.getSecond();
-      storage = RemoteStorage.create(host, port,
-          CONFIG.getConnectedStorageTransmissionPassword(storageName).toCharArray());
-      System.out.format("Connected to remote storage %s\n", path);
-    }
-
-    if (storage != null) {
-      switch (encryptionType) {
-        case DATA:
-          storage = EncryptedStorages.getEncryptedStorage(storage,
-              CONFIG.getConnectedStorageFileEncryptionPassword(storageName).toCharArray(),
-              false);
-          System.out.format("Using data encryption on storage %s\n", path);
-          break;
-        case FULL:
-          storage = EncryptedStorages.getEncryptedStorage(storage,
-              CONFIG.getConnectedStorageFileEncryptionPassword(storageName).toCharArray(),
-              true);
-          System.out.format("Using full encryption on storage %s\n", path);
-          break;
-        case NONE:
-        // leave storage unencrypted
-        }
-    }
-
-    return storage;
+    return ConnectedStorageResolver.getStorage(config, storageName, System.out);
   }
 
-  /**
-   * Extracts host name and port from a host in the format example.com:1234.
-   *
-   * @return a Pair containing hostname and port, or null if the passed string
-   *         is not in the correct format
-   */
-  private static Pair<String, Integer> splitHostPort(String s) {
-    Matcher m = HOST_PORT.matcher(s);
-
-    if (m.matches()) {
-      return new Pair<>(m.group(1), Integer.valueOf(m.group(2)));
-    } else {
-      return null;
-    }
+  public Configuration getConfiguration() {
+    return config;
   }
 }

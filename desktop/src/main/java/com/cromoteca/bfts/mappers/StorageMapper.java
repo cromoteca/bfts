@@ -151,6 +151,12 @@ public interface StorageMapper {
 
   List<Map<String, Object>> getClientsLastUpdated();
 
+  List<Map<String, Object>> queryFilesView(
+      @Param("columns") List<String> columns,
+      @Param("whereClause") String whereClause,
+      @Param("orderByClause") String orderByClause,
+      @Param("limit") int limit);
+
   /**
    * Counts items that are included in the current backup view, divided by file
    * type

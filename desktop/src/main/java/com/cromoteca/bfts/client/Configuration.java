@@ -34,6 +34,7 @@ public class Configuration {
   private static final int DEFAULT_LONG_OPERATION_DURATION = 30;
   private static final String CONTROL_PORT = "controlPort";
   private static final int DEFAULT_CONTROL_PORT = 8615;
+  private static final String DEFAULT_NODE_PATH = "/com/cromoteca/bfts";
   private final Preferences p;
   // 32 random bytes (AES-256 key)
   private static final byte[] PASSWORD_KEY = new byte[] {
@@ -51,6 +52,13 @@ public class Configuration {
    */
   public Configuration(Preferences p) {
     this.p = p;
+  }
+
+  /**
+   * Loads the default configuration node shared by the desktop and auxiliary tools.
+   */
+  public static Configuration load() {
+    return new Configuration(Preferences.userRoot().node(DEFAULT_NODE_PATH));
   }
 
   /**
