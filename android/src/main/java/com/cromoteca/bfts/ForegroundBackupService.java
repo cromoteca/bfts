@@ -15,12 +15,13 @@ import com.cromoteca.bfts.client.ClientActivities;
 import com.cromoteca.bfts.client.ClientScheduler;
 import com.cromoteca.bfts.client.Filesystem;
 import com.cromoteca.bfts.storage.EncryptedStorages;
-import com.cromoteca.bfts.storage.EncryptionType;
 import com.cromoteca.bfts.storage.RemoteStorage;
 import com.cromoteca.bfts.storage.Storage;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.cromoteca.bfts.storage.EncryptionType;
 
 public class ForegroundBackupService extends Service {
     private static final long DAY = 1000L * 60 * 60 * 24;
@@ -56,49 +57,26 @@ public class ForegroundBackupService extends Service {
             String clientName = config.getClientName();
             log.debug("Running backup with client name {} on server {}:{}",
                     clientName, config.getServerName(), config.getServerPort());
-            char[] transmissionPassword = config.getTransmissionPassword().toCharArray();
-            if (transmissionPassword.length == 0) {
-                log.warn("Transmission password is empty; cannot start backup scheduler");
-                return;
-            }
 
             Storage storage = RemoteStorage.create(config.getServerName(),
-                    config.getServerPort(), transmissionPassword);
-
-            EncryptionType encryptionType = config.getEncryptionType();
-            switch (encryptionType) {
-                case DATA:
-                case FULL:
-                    char[] dataPassword = config.getDataPassword().toCharArray();
-                    if (dataPassword.length == 0) {
-                        log.warn("Data encryption password is empty for encryption type {}", encryptionType);
-                        break;
-                    }
-                    boolean encryptStrings = encryptionType == EncryptionType.FULL;
-                    storage = EncryptedStorages.getEncryptedStorage(storage, dataPassword, encryptStrings);
-                    break;
-                case NONE:
-                    log.warn("Encryption type NONE is not supported on Android; defaulting to unencrypted storage");
-                    break;
-            }
+                    config.getServerPort(), config.getTransmissionPassword().toCharArray());
+            storage = EncryptedStorages.getEncryptedStorage(storage,
+                    config.getDataPassword().toCharArray(),
+                    config.getEncryptionType() == EncryptionType.FULL);
             Filesystem filesystem = new Filesystem();
             ClientActivities backup = new ClientActivities(clientName,
                     filesystem, storage, config.getServerName(), 120);
             backup.setMaxNumberOfChunksToStore(100);
             scheduler = new ClientScheduler(backup, MIN_PAUSE, MAX_PAUSE);
             scheduler.start();
-            config.setServiceActive(true);
         }
     }
 
     public void stopScheduler() {
-        ConfigBean config = new ConfigBean(PreferenceManager
-                .getDefaultSharedPreferences(ForegroundBackupService.this));
         if (scheduler != null) {
             scheduler.stop();
             scheduler = null;
         }
-        config.setServiceActive(false);
     }
 
     private void startForegroundActivity() {
@@ -115,25 +93,17 @@ public class ForegroundBackupService extends Service {
         }
 
         Intent notificationIntent = new Intent(this, MainActivity.class);
-        int pendingIntentFlags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                ? PendingIntent.FLAG_IMMUTABLE : 0;
         PendingIntent pendingIntent =
-                PendingIntent.getActivity(this, 0, notificationIntent, pendingIntentFlags);
+                PendingIntent.getActivity(this, 0, notificationIntent, 0);
 
-        Notification.Builder builder =
+        Notification notification =
                 new Notification.Builder(this, "8715")
                         .setContentTitle("Backup running")
                         .setContentText("Backup runs in the background")
                         .setSmallIcon(R.drawable.ic_launcher_foreground)
                         .setContentIntent(pendingIntent)
-                        .setOngoing(true)
-                        .setTicker("BFTS Ticker");
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
-        }
-
-        Notification notification = builder.build();
+                        .setTicker("BFTS Ticker")
+                        .build();
 
         startForeground(1, notification);
     }
@@ -142,11 +112,5 @@ public class ForegroundBackupService extends Service {
         public ForegroundBackupService getInstance() {
             return ForegroundBackupService.this;
         }
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        stopScheduler();
     }
 }

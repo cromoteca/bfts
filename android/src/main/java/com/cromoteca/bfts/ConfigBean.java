@@ -44,15 +44,6 @@ public class ConfigBean extends BaseObservable {
     }
 
     @Bindable
-    public String getPassword() {
-        return getTransmissionPassword();
-    }
-
-    public void setPassword(String password) {
-        setTransmissionPassword(password);
-    }
-
-    @Bindable
     public String getTransmissionPassword() {
         String legacy = prefs.getString("password", "");
         return prefs.getString("transmissionPassword", legacy);
@@ -106,13 +97,5 @@ public class ConfigBean extends BaseObservable {
 
     public void setLastTrashCollectionDay(long lastTrashCollectionDay) {
         prefs.edit().putLong("lastTrashCollectionDay", lastTrashCollectionDay).commit();
-    }
-
-    public boolean isServiceActive() {
-        return prefs.getBoolean("serviceActive", false);
-    }
-
-    public void setServiceActive(boolean active) {
-        prefs.edit().putBoolean("serviceActive", active).commit();
     }
 }

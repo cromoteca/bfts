@@ -23,12 +23,12 @@ allprojects {
 }
 
 android {
-    compileSdkVersion 36
+    compileSdkVersion 28
     namespace 'com.cromoteca.bfts'
     defaultConfig {
         applicationId "com.cromoteca.bfts"
         minSdkVersion 26
-        targetSdkVersion 36
+        targetSdkVersion 28
         versionCode 1
         versionName "1.0"
     }
