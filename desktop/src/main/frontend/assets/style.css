@@ -368,3 +368,87 @@ table.storages-table td {
 .password-toggle:active {
   transform: scale(0.95);
 }
+
+/* Sync Styles */
+.sync-group {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: var(--color-bg);
+  border-radius: 8px;
+  border: 1px solid var(--color-bfts-primary-xlight);
+}
+
+.sync-group h2 {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: var(--color-bfts-primary);
+}
+
+.sync-group-status {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--color-text-soft);
+  background: var(--color-bfts-primary-xlight);
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
+.sync-direction {
+  font-weight: 500;
+  text-align: center;
+}
+
+.sync-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.sync-checkbox input[type="checkbox"] {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-bfts-primary);
+}
+
+.sync-two-way {
+  background: rgba(76, 175, 80, 0.1);
+}
+
+.sync-active-source {
+  background: rgba(33, 150, 243, 0.1);
+}
+
+.sync-active-target {
+  background: rgba(255, 193, 7, 0.1);
+}
+
+.sync-pending {
+  background: rgba(158, 158, 158, 0.1);
+}
+
+.sync-disabled {
+  background: transparent;
+}
+
+.sync-two-way .sync-direction {
+  color: #4caf50;
+}
+
+.sync-active-source .sync-direction {
+  color: #2196f3;
+}
+
+.sync-active-target .sync-direction {
+  color: #ff9800;
+}
+
+.sync-pending .sync-direction {
+  color: #9e9e9e;
+  font-style: italic;
+}

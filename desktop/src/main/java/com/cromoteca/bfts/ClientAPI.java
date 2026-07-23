@@ -45,9 +45,11 @@ import com.cromoteca.bfts.util.Util;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -408,10 +410,76 @@ public class ClientAPI {
 
       node.put("path", source.getRootPath());
       node.put("priority", source.getPriority());
+      node.put("syncSource", source.isSyncSource());
+      node.put("syncTarget", source.isSyncTarget());
       array.add(node);
     }
 
     return array;
+  }
+
+  /**
+   * Returns all directory names that appear in multiple storages with their sync settings.
+   *
+   * @return A JSON array containing sync groups
+   */
+  public ArrayNode syncList() {
+    // Collect all sources from all connected storages
+    Map<String, List<ObjectNode>> dirNameOccurrences = new HashMap<>();
+
+    for (String storageName : config.getConnectedStorages()) {
+      Storage storage = getStorage(storageName);
+      if (storage == null) {
+        continue;
+      }
+
+      List<Source> sources = storage.selectSources(config.getClientName());
+      for (Source source : sources) {
+        if (source.getName() == null) {
+          continue;
+        }
+
+        ObjectNode occurrence = mapper.createObjectNode();
+        occurrence.put("storageName", storageName);
+        occurrence.put("path", source.getRootPath());
+        occurrence.put("syncSource", source.isSyncSource());
+        occurrence.put("syncTarget", source.isSyncTarget());
+
+        dirNameOccurrences
+            .computeIfAbsent(source.getName(), k -> new ArrayList<>())
+            .add(occurrence);
+      }
+    }
+
+    // Build sync groups for directory names with 2+ occurrences
+    ArrayNode syncGroups = mapper.createArrayNode();
+    for (Map.Entry<String, List<ObjectNode>> entry : dirNameOccurrences.entrySet()) {
+      if (entry.getValue().size() >= 2) {
+        ObjectNode group = mapper.createObjectNode();
+        group.put("dirName", entry.getKey());
+        ArrayNode occurrences = mapper.createArrayNode();
+        entry.getValue().forEach(occurrences::add);
+        group.set("occurrences", occurrences);
+        syncGroups.add(group);
+      }
+    }
+
+    return syncGroups;
+  }
+
+  /**
+   * Updates sync settings for a source.
+   *
+   * @param storageName Storage name
+   * @param sourceName Source name
+   * @param syncSource Whether this source pushes changes
+   * @param syncTarget Whether this source pulls changes
+   */
+  public void syncSet(String storageName, String sourceName, boolean syncSource, boolean syncTarget) {
+    Storage storage = getStorage(storageName);
+    storage.setSourceSyncAttributes(config.getClientName(), sourceName, syncSource, syncTarget);
+    System.out.format("Sync settings for %s on %s updated: source=%s, target=%s%n",
+        sourceName, storageName, syncSource, syncTarget);
   }
 
   /**

@@ -3,6 +3,7 @@ import Dashboard from "./views/Dashboard.jsx";
 import Storages from "./views/Storages.jsx";
 import Configuration from "./views/Configuration.jsx";
 import Directories from "./views/Directories.jsx";
+import Sync from "./views/Sync.jsx";
 import { NotificationContext } from "./NotificationContext.jsx";
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
     { key: 'dashboard', label: 'Dashboard' },
     { key: 'storages', label: 'Storages' },
     { key: 'directories', label: 'Directories' },
+    { key: 'sync', label: 'Sync' },
     { key: 'configuration', label: 'Configuration' },
   ];
 
@@ -59,6 +61,7 @@ function App() {
         {currentView === 'dashboard' && <Dashboard />}
         {currentView === 'storages' && <Storages />}
         {currentView === 'directories' && <Directories />}
+        {currentView === 'sync' && <Sync />}
         {currentView === 'configuration' && <Configuration />}
       </main>
       <footer>

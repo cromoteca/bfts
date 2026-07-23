@@ -32,9 +32,19 @@ export function initializeMockBridge() {
       { name: "photos", path: "/Users/demo/Pictures", priority: 15 }
     ],
     "Another Connected": [
-      { name: "projects", path: "/mnt/mock/projects", priority: 5 }
+      { name: "projects", path: "/mnt/mock/projects", priority: 5 },
+      { name: "photos", path: "/mnt/another/photos", priority: 10 }
     ],
-    "Third Connected": []
+    "Third Connected": [
+      { name: "documents", path: "/var/docs", priority: 5 },
+      { name: "photos", path: "/var/pics", priority: 15 }
+    ]
+  };
+
+  // Sync configuration: key is "dirName:storageName", value is { syncSource: boolean, syncTarget: boolean }
+  const syncConfig = {
+    "photos:Mock Connected": { syncSource: false, syncTarget: true },
+    "photos:Another Connected": { syncSource: true, syncTarget: false }
   };
   const logEntries = [];
   let lastLogId = 0;
@@ -196,6 +206,40 @@ export function initializeMockBridge() {
         controlPort = newPort;
         pushLog(`Control port changed to ${newPort}`);
       }
+      return "null";
+    } else if (method === "syncList") {
+      // Get all directory names that appear in multiple storages
+      const dirNameCounts = {};
+      Object.entries(storageSources).forEach(([storageName, sources]) => {
+        sources.forEach(source => {
+          if (!dirNameCounts[source.name]) {
+            dirNameCounts[source.name] = [];
+          }
+          dirNameCounts[source.name].push({ storageName, source });
+        });
+      });
+
+      const syncGroups = Object.entries(dirNameCounts)
+        .filter(([_, occurrences]) => occurrences.length >= 2)
+        .map(([dirName, occurrences]) => ({
+          dirName,
+          occurrences: occurrences.map(({ storageName, source }) => {
+            const key = `${dirName}:${storageName}`;
+            const config = syncConfig[key] || { syncSource: false, syncTarget: false };
+            return {
+              storageName,
+              path: source.path,
+              ...config
+            };
+          })
+        }));
+
+      return JSON.stringify(syncGroups);
+    } else if (method === "syncSet") {
+      const [ storageName, dirName, syncSource, syncTarget ] = params || [];
+      const key = `${dirName}:${storageName}`;
+      syncConfig[key] = { syncSource: !!syncSource, syncTarget: !!syncTarget };
+      pushLog(`Sync settings for ${dirName} on ${storageName} updated: source=${syncSource}, target=${syncTarget}`);
       return "null";
     }
 
